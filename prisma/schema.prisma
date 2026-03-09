@@ -1,0 +1,243 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // หรือ sqlite ตามที่คุณใช้จริง
+  url      = env("DATABASE_URL")
+}
+
+//การอนุมัติ
+enum ApprovalStatus {
+  NOT_SUBMITTED // ยังไม่ยื่นขออนุมัติ (สถานะเริ่มต้น)
+  PENDING // รออนุมัติ
+  APPROVED // อนุมัติแล้ว
+  REJECTED // ไม่อนุมัติ
+}
+
+// 2. ตาราง User
+model User {
+  id               Int      @id @default(autoincrement())
+  username         String   @unique // เก็บ username (เช่น koson.ru หรือ รหัสนักศึกษา)
+  email            String   @unique // อีเมล @ksu.ac.th
+  prefix           String?  // คำนำหน้า (นาย, นาง, นางสาว)
+  name             String   // ชื่อจริง
+  surname          String?  // นามสกุล
+  
+  // สิทธิ์การใช้งาน
+  roleId           Int
+  role             Role     @relation(fields: [roleId], references: [id])
+  
+  // ข้อมูลส่วนตัว/วิชาการ (รองรับทั้งอาจารย์และนักศึกษา)
+  academicRank     String?  // วิทยฐานะ/ตำแหน่งวิชาการ (เฉพาะอาจารย์)
+  personnelType    String?  // ประเภทบุคลากร (สายวิชาการ, สายสนับสนุน, นักศึกษา)
+  faculty          String?  // คณะ
+  department       String   // สาขาวิชา/หน่วยงาน
+  position         String?  // ตำแหน่งบริหาร (ถ้ามี)
+  tel              String?  // เบอร์โทรศัพท์
+  
+  // --- ความสัมพันธ์ (Relations) ---
+  
+  // สำหรับอาจารย์
+  teachingYears      AcademicYearInstructor[]
+  createdAcademicYears AcademicYear[]          @relation("InstructorCreatedYear")
+  approvedEstablishments Establishment[]       @relation("InstructorApproveEstablishment")
+  assignedStudents   User[]                  @relation("StudentSupervisor") // อาจารย์ดูแลนักศึกษาคนไหนบ้าง
+  supervisionsGiven  Supervision[]           @relation("TeacherSupervision")
+
+  // สำหรับนักศึกษา
+  supervisorId       Int?
+  supervisor         User?                   @relation("StudentSupervisor", fields: [supervisorId], references: [id])
+  establishmentId    Int?
+  establishment      Establishment?          @relation(fields: [establishmentId], references: [id])
+  internshipStatus   InternshipStatus?       // เก็บสถานะฝึกงาน
+  approvalStatus     ApprovalStatus          @default(NOT_SUBMITTED)
+  academicYearId     Int?
+  academicYear       AcademicYear?           @relation(fields: [academicYearId], references: [id])
+  supervisionsReceived Supervision[]         @relation("StudentSupervision")
+
+  // ความสัมพันธ์เรื่องการอนุมัติ (Course Instructor อนุมัติ นศ.)
+  approvedById       Int?
+  approvedBy         User?                   @relation("CourseInstructorApproval", fields: [approvedById], references: [id])
+  approvedStudents   User[]                  @relation("CourseInstructorApproval")
+
+  reviews            Review[]
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique // "ADMIN", "COURSE_INSTRUCTOR", "SUPERVISOR", "STUDENT"
+  users User[]
+}
+
+model AcademicYear {
+  id        Int     @id @default(autoincrement())
+  semester  Int // เทอม 1, 2, 3
+  year      Int // ปี 2568
+  isCurrent Boolean @default(false)
+  
+  // 🚩 อาจารย์ประจำวิชาเป็นคนสร้างและคุมปีการศึกษานี้
+  createdById Int
+  createdBy   User @relation("InstructorCreatedYear", fields: [createdById], references: [id])
+
+  students               User[]
+  AcademicYearInstructor AcademicYearInstructor[]
+  
+  @@unique([semester, year])
+}
+
+model AcademicYearInstructor {
+  id             Int          @id @default(autoincrement())
+  academicYearId Int
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  
+  instructorId Int
+  instructor   User @relation(fields: [instructorId], references: [id])
+
+  @@unique([academicYearId, instructorId]) // ป้องกันการเพิ่มอาจารย์คนเดิมซ้ำในเทอมเดียวกัน
+}
+
+enum InternshipStatus {
+  TRAINING // กำลังฝึก
+  COMPLETED // ฝึกจบแล้ว
+}
+
+// 3. ตารางสถานประกอบการ
+model Establishment {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  address     String
+  contact     String
+  category    String
+  imageUrl    String?
+  mapUrl      String?  @db.Text
+  status      String   @default("PENDING") // PENDING (รอ), APPROVED (ผ่าน), REJECTED (ไม่ผ่าน)
+  createdAt   DateTime @default(now())
+  
+  // 🚩 เพิ่มฟิลด์ว่าอาจารย์คนไหนเป็นคนกดอนุมัติบริษัทนี้
+  approvedById Int?
+  approvedBy   User? @relation("InstructorApproveEstablishment", fields: [approvedById], references: [id])
+
+  jobs    Job[]
+  interns User[]
+  reviews Review[]
+}
+
+// ✅ [เพิ่มใหม่] ตารางรีวิวสถานประกอบการ
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int      @default(5) // คะแนน (เช่น 1-5 ดาว)
+  comment   String   @db.Text // ข้อความรีวิว
+  createdAt DateTime @default(now())
+
+  // ใครเป็นคนเขียนรีวิว?
+  studentId Int
+  student   User @relation(fields: [studentId], references: [id])
+
+  // รีวิวให้บริษัทไหน?
+  establishmentId Int
+  establishment   Establishment @relation(fields: [establishmentId], references: [id])
+
+  @@map("reviews")
+}
+
+// 4. ตารางตำแหน่งงาน
+model Job {
+  id              Int           @id @default(autoincrement())
+  title           String
+  tags            String?
+  salary          Int           @default(0)
+  hasShuttle      Boolean       @default(false)
+  hasDorm         Boolean       @default(false)
+  status          String        @default("PENDING")
+  establishmentId Int
+  establishment   Establishment @relation(fields: [establishmentId], references: [id])
+}
+
+// --- ส่วนของการประเมิน (Evaluation) เดิมของคุณ ---
+
+model Form {
+  id          Int          @id @default(autoincrement())
+  title       String       @db.VarChar(255)
+  description String?      @db.Text
+  questions   Question[]
+  evaluations Evaluation[]
+
+  @@map("forms")
+}
+
+model Question {
+  id           Int                @id @default(autoincrement())
+  formId       Int                @map("form_id")
+  inputType    String             @map("input_type") @db.VarChar(50)
+  questionText String             @map("question_text") @db.Text
+  orderIndex   Int                @default(0) @map("order_index")
+  form         Form               @relation(fields: [formId], references: [id])
+  answers      EvaluationAnswer[]
+
+  @@map("questions")
+}
+
+enum EvaluationRound {
+  ROUND_1
+  ROUND_2
+  ROUND_3
+}
+
+model Evaluation {
+  id                  Int             @id @default(autoincrement())
+  formId              Int             @map("form_id")
+  evaluatorId         Int?            @map("evaluator_id")
+  studentId           Int?            @map("student_id")
+  evaluatedAt         DateTime        @default(now()) @map("evaluated_at")
+  evaluatorName       String?         @map("evaluator_name")
+  establishmentId     Int?            @map("establishment_id")
+  round               EvaluationRound @default(ROUND_1) @map("evaluation_round")
+  teacherSignatureUrl String?         @map("teacher_signature_url") // ลายเซ็นอาจารย์นิเทศ
+  mentorSignatureUrl  String?         @map("mentor_signature_url") // ลายเซ็นพี่เลี้ยงสถานประกอบการ
+  mentorName          String?         @map("mentor_name") // ชื่อพี่เลี้ยง
+  
+  form    Form               @relation(fields: [formId], references: [id])
+  answers EvaluationAnswer[]
+
+  @@map("evaluations")
+}
+
+model EvaluationAnswer {
+  id           Int     @id @default(autoincrement())
+  evaluationId Int     @map("evaluation_id")
+  questionId   Int     @map("question_id")
+  score        Int?
+  answerText   String? @map("answer_text") @db.Text
+  
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id])
+  question   Question   @relation(fields: [questionId], references: [id])
+
+  @@map("evaluation_answers")
+}
+
+// ==========================================
+// ✅ [เพิ่มใหม่] ตารางการนิเทศงาน (Supervision)
+// ==========================================
+model Supervision {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) // วันที่บันทึกข้อมูล
+  
+  // ข้อมูลการนิเทศ
+  round    Int     @default(1) // ครั้งที่ 1, 2
+  content  String? @db.Text // รายละเอียด/บันทึกข้อความจากอาจารย์
+  imageUrl String? // ✅ รูปภาพประกอบ (รูปเดียวตามที่ขอ)
+  
+  // ความสัมพันธ์
+  studentId Int
+  student   User @relation("StudentSupervision", fields: [studentId], references: [id])
+
+  teacherId Int
+  teacher   User @relation("TeacherSupervision", fields: [teacherId], references: [id])
+
+  @@map("supervisions")
+}
