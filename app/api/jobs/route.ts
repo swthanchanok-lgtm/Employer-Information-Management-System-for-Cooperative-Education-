@@ -7,12 +7,16 @@ const prisma = new PrismaClient();
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || "APPROVED"; // ถ้าไม่ระบุ จะดึงงานที่อนุมัติแล้วมาโชว์
+    // รับค่า status จาก URL เช่น ?status=PENDING
+    const status = searchParams.get('status');
+    
+    const whereCondition = status ? { status: status } : {}; // ถ้าไม่ระบุ status ให้ดึงมาทั้งหมดเลย
 
     const jobs = await prisma.job.findMany({
-      where: { status: status },
+      // 🚩 ถ้ามีการส่ง status มาให้กรองตามนั้น ถ้าไม่มีให้ดึงทั้งหมด (หรือดึง PENDING เป็นหลัก)
+      where: status ? { status: status } : { status: 'PENDING' }, 
       include: { 
-        establishment: true // จอยข้อมูลบริษัทมาด้วยเพื่อโชว์ชื่อบริษัท
+        establishment: true 
       },
       orderBy: { id: 'desc' }
     });

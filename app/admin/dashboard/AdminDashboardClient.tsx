@@ -1,15 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Users, UserPlus, Building2, 
   ChevronRight, LayoutDashboard, UserCheck,
-  Clock, CheckCircle2, Briefcase, Bell,
-  PlusCircle, Settings2
+  CheckCircle2, Bell, Settings2
 } from 'lucide-react';
 
-// ✅ Interface รองรับข้อมูลครบถ้วน
+
 interface DashboardProps {
   session: any;
   stats: {
@@ -22,176 +21,85 @@ interface DashboardProps {
   pendingJobs: any[];     
 }
 
-export default function AdminDashboardClient({ session, stats, pendingRequests, pendingJobs }: DashboardProps) {
+export default function AdminDashboardClient({ session, stats }: DashboardProps) {
+
+  const [currentTerm, setCurrentTerm] = useState<any>(null);
+
+useEffect(() => {
+  fetch('/api/academic-years/current')
+    .then(res => res.json())
+    .then(data => {
+      if (data && !data.error) {
+        setCurrentTerm(data);
+      }
+    })
+    .catch(err => console.error("โหลดปีการศึกษาไม่ขึ้นจ้าแม่:", err));
+}, []);
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8 font-sans text-left">
       <div className="max-w-6xl mx-auto">
         
-        {/* Header ส่วนหัว */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-[#2B4560] mb-1">
-              <LayoutDashboard size={20} />
-              <span className="text-xs font-black uppercase tracking-[0.2em]">Management System</span>
-            </div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Admin Dashboard</h1>
-            <p className="text-slate-500 text-sm font-medium">
-              สวัสดีคุณ {session?.user?.name || "ผู้ดูแลระบบ"} • จัดการระบบ Coop-EMS
-            </p>
-          </div>
-          
-          <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3 pr-6">
-            <div className="w-10 h-10 bg-[#2B4560] rounded-xl flex items-center justify-center text-white font-bold shadow-inner">
-              {session?.user?.name?.[0] || "A"}
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-800 leading-none">Administrator</p>
-              <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">{session?.user?.email}</p>
-            </div>
-          </div>
-        </header>
-
+        {/* 🛡️ Header ส่วนหัว Admin Dashboard - ฉบับปรับปรุงใหม่ให้แม่รณชัย */}
+<header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <div>
+    <div className="flex items-center gap-2 text-[#2B4560] mb-1">
+      <LayoutDashboard size={20} />
+      <span className="text-xs font-black uppercase tracking-[0.2em]">Management System</span>
+    </div>
+    
+    {/* 🚀 Title ใหญ่ พร้อมปีการศึกษาที่เป็นเนื้อเดียวกัน */}
+    <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+      Admin Dashboard
+      {currentTerm && (
+        <span className="text-2xl font-medium text-slate-300 border-l-2 border-slate-200 pl-4 ml-1">
+          ปีการศึกษา {currentTerm.year}/{currentTerm.semester}
+        </span>
+      )}
+    </h1>
+    
+    {/* ✅ สวัสดีคุณ... ที่แม่รัก ยังอยู่ครบจ้า */}
+    <p className="text-slate-500 text-sm font-medium mt-1">
+      สวัสดีคุณ <span className="text-[#2B4560] font-bold">{session?.user?.name || "ผู้ดูแลระบบ"}</span> • จัดการระบบสมาชิก Coop-EMS
+    </p>
+  </div>
+  
+  {/* 👤 ส่วนโปรไฟล์ขวามือ (เก็บไว้ครบตามโค้ดเดิมแม่จ้า) */}
+  <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-3 pr-6">
+    <div className="w-10 h-10 bg-[#2B4560] rounded-xl flex items-center justify-center text-white font-bold shadow-inner">
+      {session?.user?.name?.[0] || "A"}
+    </div>
+    <div>
+      <p className="text-sm font-bold text-slate-800 leading-none">Administrator</p>
+      <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">{session?.user?.email}</p>
+    </div>
+  </div>
+</header>
         {/* 🚩 1. The Power Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <StatCard label="นักศึกษาทั้งหมด" value={stats.totalStudents} unit="คน" sub="ลงทะเบียนในระบบ" color="blue" icon={<Users size={22}/>} />
           <StatCard label="อาจารย์นิเทศ" value={stats.totalSupervisors} unit="ท่าน" sub="ผู้ดูแลนักศึกษา" color="indigo" icon={<UserCheck size={22}/>} />
-          <StatCard label="สถานประกอบการ" value={stats.totalEstablishments} unit="แห่ง" sub="ที่ผ่านการอนุมัติ" color="orange" icon={<Building2 size={22}/>} />
-          <StatCard label="งานรออนุมัติ" value={stats.totalPendingJobs} unit="ตำแหน่ง" sub="ต้องตรวจสอบ" color="rose" icon={<Bell size={22}/>} />
+          <StatCard label="สถานประกอบการ" value={stats.totalEstablishments} unit="แห่ง" sub="ฐานข้อมูลปัจจุบัน" color="orange" icon={<Building2 size={22}/>} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
+          {/* ส่วนเนื้อหาหลัก: ตอนนี้ Admin เน้นดูภาพรวมสมาชิก */}
           <div className="lg:col-span-2 space-y-8">
-            {/* 🚩 2. คำร้องเพิ่มบริษัทใหม่ */}
-            <section className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden text-left">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/50">
-                <div className="flex items-center gap-3">
-                  <div className="bg-orange-50 text-orange-600 p-2 rounded-lg">
-                    <Clock size={20} />
+            <section className="bg-white border border-slate-200 rounded-[2rem] p-10 shadow-sm text-center">
+               <div className="max-w-sm mx-auto">
+                  <div className="bg-slate-50 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                    <UserCheck className="text-slate-300" size={40} />
                   </div>
-                  <div>
-                    <h2 className="font-black text-slate-800 text-lg">คำร้องเพิ่มบริษัทใหม่</h2>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Establishment Pending</p>
-                  </div>
-                </div>
-                <span className="bg-[#2B4560] text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-[#2B4560]/10">
-                  {pendingRequests?.length || 0} รายการ
-                </span>
-              </div>
-              
-              <div className="divide-y divide-slate-50">
-                {pendingRequests && pendingRequests.length > 0 ? (
-                  pendingRequests.map((req) => (
-                    <div key={req.id} className="p-6 hover:bg-slate-50/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-                      <div className="flex gap-4 items-center">
-                        <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-[#2B4560] transition-colors shadow-sm">
-                          <Building2 size={24} />
-                        </div>
-                        <div>
-                          <p className="text-base font-black text-slate-800 leading-tight group-hover:text-[#2B4560] transition-colors">
-                            {req.name || req.companyName}
-                          </p>
-                          <p className="text-xs text-slate-400 font-medium mt-1">
-                            เสนอโดย: <span className="text-slate-600 font-bold">{req.studentName || req.student?.name || "ไม่ระบุชื่อ"}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <Link 
-                        href={`/admin/establishments/verify/${req.id}`}
-                        className="flex items-center gap-2 px-8 py-2.5 bg-[#2B4560] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:-translate-y-0.5 transition-all active:scale-95"
-                      >
-                        ตรวจสอบข้อมูล
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-14 text-center">
-                    <CheckCircle2 size={32} className="text-slate-100 mx-auto mb-2" />
-                    <p className="text-slate-300 font-black text-[10px] uppercase tracking-widest">ไม่มีบริษัทค้างตรวจสอบ</p>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 🚩 3. คำร้องเพิ่มตำแหน่งงานใหม่ */}
-            <section className="bg-white border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden text-left">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-blue-50/30">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                    <Briefcase size={20} />
-                  </div>
-                  <div>
-                    <h2 className="font-black text-slate-800 text-lg">คำร้องเพิ่มตำแหน่งงาน</h2>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Job Position Pending</p>
-                  </div>
-                </div>
-                <span className="bg-blue-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full">
-                  {pendingJobs?.length || 0} รายการ
-                </span>
-              </div>
-              
-              <div className="divide-y divide-slate-50">
-                {pendingJobs && pendingJobs.length > 0 ? (
-                  pendingJobs.map((job) => (
-                    <div key={job.id} className="p-6 hover:bg-blue-50/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-                      <div className="flex gap-4 items-center">
-                        <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 shadow-sm">
-                          <Briefcase size={24} />
-                        </div>
-                        <div>
-                          <p className="text-base font-black text-slate-800 leading-tight">
-                            {job.title}
-                          </p>
-                          <p className="text-xs text-slate-400 font-medium mt-1">
-                            บริษัท: <span className="text-slate-600 font-bold">{job.establishment?.name}</span>
-                          </p>
-                        </div>
-                      </div>
-                      <Link 
-                        href="/admin/approve-jobs"
-                        className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:-translate-y-0.5 transition-all"
-                      >
-                        อนุมัติงาน
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-14 text-center">
-                    <CheckCircle2 size={32} className="text-slate-100 mx-auto mb-2" />
-                    <p className="text-slate-300 font-black text-[10px] uppercase tracking-widest">ไม่มีงานค้างตรวจสอบ</p>
-                  </div>
-                )}
-              </div>
+                  <h2 className="text-xl font-black text-slate-800 mb-2">ยินดีต้อนรับสู่ส่วนจัดการระบบ</h2>
+                  <p className="text-slate-500 text-sm font-medium">
+                    คุณสามารถจัดการบัญชีผู้ใช้งาน เพิ่มสมาชิกใหม่ หรือตรวจสอบรายชื่ออาจารย์และนักศึกษาได้จากเมนูด้านข้างค่ะ
+                  </p>
+               </div>
             </section>
           </div>
 
           <aside className="space-y-6 text-left">
-            {/* 🚩 4. Management Tools: เพิ่มส่วนจัดการข้อมูลหลัก */}
-            <div className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
-                <Settings2 size={16} /> Data Management
-              </h3>
-              <div className="space-y-4">
-                {/* ➕ เพิ่มสถานประกอบการโดย Admin */}
-                <MenuLink 
-                  href="/admin/establishments/add" 
-                  icon={<PlusCircle size={20}/>} 
-                  label="เพิ่มสถานประกอบการ" 
-                  sub="Add New Company" 
-                  color="orange" 
-                />
-                {/* 💼 จัดการตำแหน่งงานทั้งหมด */}
-                <MenuLink 
-                  href="/admin/jobs/manage" 
-                  icon={<Briefcase size={20}/>} 
-                  label="จัดการตำแหน่งงาน" 
-                  sub="Edit / Delete All Jobs" 
-                  color="blue" 
-                />
-              </div>
-            </div>
-
-            {/* 🚩 5. User Management: ส่วนจัดการสมาชิก */}
+            {/* 🚩 2. User Management: ส่วนจัดการสมาชิก (เหลือแค่อันนี้ตามสั่งจ้า) */}
             <div className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8 flex items-center gap-2">
                 <Users size={16} /> User Management
@@ -202,7 +110,7 @@ export default function AdminDashboardClient({ session, stats, pendingRequests, 
               </div>
             </div>
 
-            {/* ส่วนเสริม: ข้อมูลระบบเบื้องต้น */}
+            {/* ส่วนเสริม: System Status */}
             <div className="p-6 bg-[#2B4560] rounded-[2rem] text-white shadow-xl shadow-[#2B4560]/10 overflow-hidden relative group">
                 <div className="relative z-10">
                     <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">System Status</p>
@@ -221,7 +129,6 @@ export default function AdminDashboardClient({ session, stats, pendingRequests, 
 }
 
 // --- Sub-components ---
-
 function StatCard({ label, value, unit, sub, color, icon }: any) {
   const themes: any = {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
@@ -253,7 +160,6 @@ function MenuLink({ href, icon, label, sub, color }: any) {
   const hoverColors: any = {
     blue: "group-hover:bg-blue-600",
     indigo: "group-hover:bg-indigo-600",
-    orange: "group-hover:bg-orange-600",
   };
   
   return (

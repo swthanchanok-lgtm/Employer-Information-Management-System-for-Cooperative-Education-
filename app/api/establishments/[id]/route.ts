@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from "@/lib/prisma"; // 👈 แนะนำให้ใช้ prisma จาก lib กลางเพื่อประสิทธิภาพจ้า
 
-const prisma = new PrismaClient();
-
-// ✅ ฟังก์ชัน GET: สำหรับดึงข้อมูลสถานประกอบการ "แค่ 1 แห่ง" พร้อมรีวิว
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // 👈 1. เปลี่ยนเป็น Promise ตามกฎ Next 15
 ) {
   try {
-    const establishmentId = Number(params.id);
+    // 👈 2. ต้องทำการ await params ก่อนเอา id มาใช้
+    const { id } = await params; 
+    const establishmentId = Number(id);
 
     const establishment = await prisma.establishment.findUnique({
       where: { id: establishmentId },
       include: {
-        reviews: true, // 👈 ดึงรีวิวทั้งหมดที่พ่วงอยู่กับบริษัทนี้มาด้วย!
+        reviews: true, 
+        jobs: {
+          where: { status: "APPROVED" } // 👈 3. ดึงตำแหน่งงานที่อนุมัติแล้วของบริษัทนี้มาโชว์ด้วย!
+        },
       },
     });
 

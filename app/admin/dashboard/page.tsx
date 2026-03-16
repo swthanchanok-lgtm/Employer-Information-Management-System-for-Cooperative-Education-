@@ -1,9 +1,29 @@
 // 📂 app/admin/dashboard/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerSession,NextAuthOptions, DefaultSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma"; 
 import AdminDashboardClient from "./AdminDashboardClient";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      role: string;
+    } & DefaultSession["user"];
+  }
+
+  interface User {
+    role: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+  }
+}
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
@@ -17,12 +37,28 @@ export default async function AdminDashboardPage() {
     totalStudents,
     totalSupervisors,
     totalEstablishments,
-    totalPendingJobs, // 🚩 1. นับจำนวนงานที่รออนุมัติ
-    pendingRequests,  // รายการบริษัทรออนุมัติ
-    pendingJobs,      // 🚩 2. ดึงรายชื่อตำแหน่งงานที่รออนุมัติ
+    totalPendingJobs, 
+    pendingRequests,  
+    pendingJobs,      
   ] = await Promise.all([
-    prisma.user.count({ where: { role: "STUDENT" } }),
-    prisma.user.count({ where: { role: "SUPERVISOR" } }),
+    // ✅ แก้ไขตรงนี้: มุดเข้าไปหาชื่อในตาราง role
+    prisma.user.count({ 
+      where: { 
+        role: { 
+          name: "STUDENT" 
+        } 
+      } 
+    }),
+
+    // ✅ แก้ไขตรงนี้เช่นกัน:
+    prisma.user.count({ 
+      where: { 
+        role: { 
+          name: "SUPERVISOR" 
+        } 
+      } 
+    }),
+
     prisma.establishment.count({ where: { status: "APPROVED" } }),
     
     // 🚩 นับจำนวนงานที่ status เป็น PENDING
@@ -38,7 +74,7 @@ export default async function AdminDashboardPage() {
     prisma.job.findMany({
       where: { status: "PENDING" },
       include: {
-        establishment: true // จอยตารางบริษัทมาเอาชื่อมาโชว์ด้วย
+        establishment: true 
       },
       orderBy: { id: 'desc' }
     }),

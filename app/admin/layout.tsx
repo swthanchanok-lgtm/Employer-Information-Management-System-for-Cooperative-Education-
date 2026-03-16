@@ -5,19 +5,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Users, UserPlus, 
-  Building2, Settings, LogOut, 
-  FileText, Bell, ChevronLeft
+  Building2, LogOut, 
+  FileText, Bell
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const menuItems = [
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', href: '/admin' },
-    { icon: <Building2 size={20} />, label: 'อนุมัติบริษัท', href: '/admin/approve-establishments' },
+    // ✅ แก้ไขตรงนี้จุดเดียว: เปลี่ยนจาก '/admin' เป็น '/admin/dashboard' ตามสั่งจ้าแม่
+    { icon: <LayoutDashboard size={20} />, label: 'Dashboard', href: '/admin/dashboard' },
     { icon: <UserPlus size={20} />, label: 'เพิ่มสมาชิก', href: '/admin/add-member' },
     { icon: <Users size={20} />, label: 'รายชื่อสมาชิก', href: '/admin/users' },
-    { icon: <FileText size={20} />, label: 'จัดการข้อมูลนิเทศ', href: '/admin/reports' },
+    { icon: <FileText size={20} />, label: 'จัดการข้อมูลนิเทศ',href: '/admin/supervision' },
   ];
 
   return (
@@ -44,8 +44,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
                   isActive 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                  : 'text-white/60 hover:bg-white/5 hover:text-white'
+                  ? 'bg-blue-800 text-white shadow-lg shadow-blue-600/20' 
+                  : 'text-white/60  hover:text-white'
                 }`}
               >
                 <span className={`${isActive ? 'text-white' : 'text-white/40 group-hover:text-blue-400'} transition-colors`}>

@@ -3,6 +3,31 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await context.params;
+    const jobId = parseInt(params.id, 10);
+
+    const job = await prisma.job.findUnique({
+      where: { id: jobId },
+      include: { 
+        establishment: true // ✅ ต้องดึงข้อมูลบริษัทมาด้วย เพื่อให้กดไปดูหน้ารายละเอียดบริษัทต่อได้
+      }
+    });
+
+    if (!job) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลงานนี้" }, { status: 404 });
+    }
+
+    return NextResponse.json(job);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 // ✅ ฟังก์ชัน PATCH สำหรับให้ Admin กดอนุมัติ (APPROVED) หรือ ปฏิเสธ (REJECTED) ตำแหน่งงาน
 export async function PATCH(
   request: Request,

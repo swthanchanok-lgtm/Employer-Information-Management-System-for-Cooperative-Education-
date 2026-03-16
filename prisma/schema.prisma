@@ -18,53 +18,51 @@ enum ApprovalStatus {
   REJECTED // ไม่อนุมัติ
 }
 
-// 2. ตาราง User
 model User {
-  id               Int      @id @default(autoincrement())
-  username         String   @unique // เก็บ username (เช่น koson.ru หรือ รหัสนักศึกษา)
-  email            String   @unique // อีเมล @ksu.ac.th
-  prefix           String?  // คำนำหน้า (นาย, นาง, นางสาว)
-  name             String   // ชื่อจริง
-  surname          String?  // นามสกุล
-  
-  // สิทธิ์การใช้งาน
-  roleId           Int
-  role             Role     @relation(fields: [roleId], references: [id])
-  
-  // ข้อมูลส่วนตัว/วิชาการ (รองรับทั้งอาจารย์และนักศึกษา)
-  academicRank     String?  // วิทยฐานะ/ตำแหน่งวิชาการ (เฉพาะอาจารย์)
-  personnelType    String?  // ประเภทบุคลากร (สายวิชาการ, สายสนับสนุน, นักศึกษา)
-  faculty          String?  // คณะ
-  department       String   // สาขาวิชา/หน่วยงาน
-  position         String?  // ตำแหน่งบริหาร (ถ้ามี)
-  tel              String?  // เบอร์โทรศัพท์
-  
-  // --- ความสัมพันธ์ (Relations) ---
-  
-  // สำหรับอาจารย์
+  id                Int       @id @default(autoincrement())
+  username          String    @unique
+  email             String    @unique
+  prefix            String?
+  name              String
+  surname           String?
+  roleId            Int
+  role              Role      @relation(fields: [roleId], references: [id])
+  academicRank      String?
+  personnelType     String?
+  faculty           String?
+  department        String
+  position          String?
+
+  // --- Relations สำหรับอาจารย์ ---
   teachingYears      AcademicYearInstructor[]
   createdAcademicYears AcademicYear[]          @relation("InstructorCreatedYear")
   approvedEstablishments Establishment[]       @relation("InstructorApproveEstablishment")
-  assignedStudents   User[]                  @relation("StudentSupervisor") // อาจารย์ดูแลนักศึกษาคนไหนบ้าง
+  assignedStudents   User[]                  @relation("StudentSupervisor")
   supervisionsGiven  Supervision[]           @relation("TeacherSupervision")
+  inGroups           SupervisionGroup[]      @relation("InstructorInGroup")
 
-  // สำหรับนักศึกษา
+  // --- Relations สำหรับนักศึกษา ---
   supervisorId       Int?
   supervisor         User?                   @relation("StudentSupervisor", fields: [supervisorId], references: [id])
   establishmentId    Int?
   establishment      Establishment?          @relation(fields: [establishmentId], references: [id])
-  internshipStatus   InternshipStatus?       // เก็บสถานะฝึกงาน
+  internshipStatus   InternshipStatus?
   approvalStatus     ApprovalStatus          @default(NOT_SUBMITTED)
   academicYearId     Int?
   academicYear       AcademicYear?           @relation(fields: [academicYearId], references: [id])
   supervisionsReceived Supervision[]         @relation("StudentSupervision")
+  supervisionGroup   SupervisionGroup?       @relation("StudentInGroup")
 
-  // ความสัมพันธ์เรื่องการอนุมัติ (Course Instructor อนุมัติ นศ.)
+  // การประเมิน (ที่ TypeScript ฟ้องตะกี้)
+  evaluations        Evaluation[]            @relation("StudentEvaluations")
+
+  // การอนุมัติ
   approvedById       Int?
   approvedBy         User?                   @relation("CourseInstructorApproval", fields: [approvedById], references: [id])
   approvedStudents   User[]                  @relation("CourseInstructorApproval")
 
   reviews            Review[]
+  applications Application[] @relation("StudentApplications")
 }
 
 model Role {
@@ -125,6 +123,7 @@ model Establishment {
   jobs    Job[]
   interns User[]
   reviews Review[]
+  applications Application[]
 }
 
 // ✅ [เพิ่มใหม่] ตารางรีวิวสถานประกอบการ
@@ -156,6 +155,7 @@ model Job {
   status          String        @default("PENDING")
   establishmentId Int
   establishment   Establishment @relation(fields: [establishmentId], references: [id])
+  applications Application[]
 }
 
 // --- ส่วนของการประเมิน (Evaluation) เดิมของคุณ ---
@@ -192,7 +192,11 @@ model Evaluation {
   id                  Int             @id @default(autoincrement())
   formId              Int             @map("form_id")
   evaluatorId         Int?            @map("evaluator_id")
+  
+  // 🚩 จุดที่ 1: เพิ่มความสัมพันธ์กับ User (นักศึกษา)
   studentId           Int?            @map("student_id")
+  student             User?           @relation("StudentEvaluations", fields: [studentId], references: [id])
+  
   evaluatedAt         DateTime        @default(now()) @map("evaluated_at")
   evaluatorName       String?         @map("evaluator_name")
   establishmentId     Int?            @map("establishment_id")
@@ -201,8 +205,8 @@ model Evaluation {
   mentorSignatureUrl  String?         @map("mentor_signature_url") // ลายเซ็นพี่เลี้ยงสถานประกอบการ
   mentorName          String?         @map("mentor_name") // ชื่อพี่เลี้ยง
   
-  form    Form               @relation(fields: [formId], references: [id])
-  answers EvaluationAnswer[]
+  form                Form            @relation(fields: [formId], references: [id])
+  answers             EvaluationAnswer[]
 
   @@map("evaluations")
 }
@@ -238,6 +242,43 @@ model Supervision {
 
   teacherId Int
   teacher   User @relation("TeacherSupervision", fields: [teacherId], references: [id])
+  score            Float?    
+  teacherSignature String?   @db.Text
+  mentorSignature  String?   @db.Text
 
   @@map("supervisions")
+}
+// ตารางกลุ่มอาจารย์นิเทศ (จับคู่ นศ. 1 คน ต่อ อาจารย์หลายคน)
+model SupervisionGroup {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+
+  // เชื่อมไปที่นักศึกษา (1 คน มีได้ 1 กลุ่ม)
+  studentId       Int      @unique
+  student         User     @relation("StudentInGroup", fields: [studentId], references: [id])
+
+  // เชื่อมไปที่อาจารย์ (หลายคนใน 1 กลุ่ม)
+  instructors     User[]   @relation("InstructorInGroup")
+}
+
+model Application {
+  id              Int            @id @default(autoincrement())
+  status          ApprovalStatus @default(PENDING) // ดึง Enum ของแม่มาใช้เลย (PENDING, APPROVED, REJECTED)
+  
+  // ข้อมูลคนที่ยื่น
+  studentId       Int
+  student         User           @relation("StudentApplications", fields: [studentId], references: [id])
+  
+  // ข้อมูลงานที่ยื่น
+  jobId           Int
+  job             Job            @relation(fields: [jobId], references: [id])
+  
+  // ข้อมูลบริษัท
+  establishmentId Int
+  establishment   Establishment  @relation(fields: [establishmentId], references: [id])
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("applications")
 }

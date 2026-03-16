@@ -4,14 +4,13 @@ import { useState, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Swal from 'sweetalert2';
-import { Briefcase } from 'lucide-react'; // อย่าลืม import icon มาด้วยนะคะ
+import { Briefcase, Building2 } from 'lucide-react'; 
 
 export default function AddEstablishmentPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [uploadMode, setUploadMode] = useState<'url' | 'file'>('url');
 
-  // ✅ เพิ่มฟิลด์ jobTitle, salary, hasShuttle, hasDorm เข้าไปใน formData แล้ว
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -29,7 +28,6 @@ export default function AddEstablishmentPage() {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
-    // ✅ แยกจัดการถ้าเป็น Checkbox ให้ใช้ checked แทน value
     if (type === 'checkbox') {
       const { checked } = e.target as HTMLInputElement;
       setFormData((prev) => ({ ...prev, [name]: checked }));
@@ -69,10 +67,13 @@ export default function AddEstablishmentPage() {
         await Swal.fire({ 
           icon: 'success', 
           title: 'บันทึกสำเร็จ', 
+          text: 'ข้อมูลสถานประกอบการถูกเพิ่มเข้าสู่ระบบแล้ว',
           timer: 1500, 
           showConfirmButton: false 
         });
-        router.push('/dashboard');
+        
+        // 🚩 แก้ไขจุดที่ 1: บันทึกเสร็จแล้วกลับหน้า Dashboard นักศึกษา
+        router.push('/student/dashboard');
         router.refresh();
       } else {
         const errorData = await res.json();
@@ -91,7 +92,8 @@ export default function AddEstablishmentPage() {
         
         <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">🏢 เพิ่มสถานประกอบการใหม่</h1>
-            <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 text-sm">❌ ยกเลิก</Link>
+            {/* 🚩 แก้ไขจุดที่ 2: ปุ่มยกเลิก กลับหน้า Dashboard นักศึกษา */}
+            <Link href="/student/dashboard" className="text-gray-500 hover:text-gray-700 text-sm font-medium">❌ ยกเลิก</Link>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -127,7 +129,6 @@ export default function AddEstablishmentPage() {
             <input type="url" name="mapUrl" value={formData.mapUrl} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="http://maps.google..." />
           </div>
 
-          {/* ส่วนจัดการรูปภาพ */}
           <div className="border p-4 rounded-lg bg-gray-50">
             <label className="block text-sm font-medium text-gray-700 mb-3">รูปภาพสถานประกอบการ</label>
             <div className="flex gap-4 mb-4 text-sm">
@@ -145,10 +146,9 @@ export default function AddEstablishmentPage() {
             )}
           </div>
 
-          {/* 🚩 ส่วนที่เพิ่ม: ตำแหน่งงานและสวัสดิการ */}
           <div className="mt-8 pt-8 border-t border-gray-200">
             <h2 className="text-lg font-bold text-[#2B4560] mb-4 flex items-center gap-2">
-              💼 ตำแหน่งงานและสวัสดิการ
+              <Briefcase size={20} /> ตำแหน่งงานและสวัสดิการ
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>

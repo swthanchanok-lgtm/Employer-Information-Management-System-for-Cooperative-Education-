@@ -1,31 +1,43 @@
-// 📂 app/admin/supervision/page.tsx
+// app/admin/supervision/page.tsx
 import { prisma } from "@/lib/prisma";
-import SupervisionClient from "./SupervisionClient";
+import AdminSupervisionClient from "./SupervisionClient";
 
-export default async function SupervisionPage() {
-  // 1. ดึงรายชื่อนักศึกษาทั้งหมด (หรือเฉพาะคนที่ยังไม่มีอาจารย์นิเทศ)
+export default async function AdminSupervisionPage() {
+  // ดึงเด็กทุกคน + ข้อมูลที่เกี่ยวข้องมาโชว์ในตาราง
   const students = await prisma.user.findMany({
-    where: { role: "STUDENT" },
-    select: {
-      id: true,
-      name: true,
-      supervisorId: true, // ตรวจสอบว่าใน Schema มีฟิลด์นี้ที่เชื่อมกับอาจารย์
+    where: { 
+      role: { name: "STUDENT" } 
+    },
+    include: {
+      establishment: true, // 🏢 โชว์สถานประกอบการ
+      // 📅 เอาวันที่นิเทศล่าสุด (แยกจากกลุ่มนิเทศนะจ๊ะ)
+      evaluations: {
+        orderBy: { evaluatedAt: 'desc' },
+        take: 1 
+      },
+      // 👥 ดูว่ากลุ่มนี้มีอาจารย์คนไหนบ้าง (ไว้ติ๊กเลือกอาจารย์)
+      supervisionGroup: {
+        include: {
+          instructors: true 
+        }
+      }
+    },
+    orderBy: { 
+      username: 'asc' 
     }
   });
 
-  // 2. ดึงรายชื่ออาจารย์ทั้งหมดเพื่อทำ Dropdown ให้แอดมินเลือก
   const supervisors = await prisma.user.findMany({
-    where: { role: "SUPERVISOR" },
-    select: {
-      id: true,
-      name: true,
-    }
+    where: { role: { name: "SUPERVISOR" } }
   });
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-black mb-6">จัดการข้อมูลการนิเทศ</h1>
-      <SupervisionClient students={students} supervisors={supervisors} />
+      <h1 className="text-2xl font-black mb-6">จัดทีมอาจารย์นิเทศ (กลุ่ม)</h1>
+      <AdminSupervisionClient 
+        initialStudents={JSON.parse(JSON.stringify(students))} 
+        supervisors={supervisors} 
+      />
     </div>
   );
 }

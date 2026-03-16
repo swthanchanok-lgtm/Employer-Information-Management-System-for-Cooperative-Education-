@@ -1,26 +1,30 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getServerSession } from "next-auth"; // ✅ เพิ่มตัวนี้
+import { authOptions } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 
-// 🚩 สังเกตตรงนี้: เราเปลี่ยนไทป์ให้ params เป็น Promise ตามกฎใหม่
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> } 
 ) {
   try {
-    // 1. แกะกล่อง params ด้วยคำว่า await 🚨 (ตรงนี้แหละพระเอกของเรา!)
+    // 🔒 1. ตรวจสอบสิทธิ์ผู้ใช้งานก่อนทำอะไรทั้งสิ้น
+    const session = await getServerSession(authOptions);
+
+    // ✅ เงื่อนไขใหม่: ต้องล็อกอิน และต้องเป็น COURSE_INSTRUCTOR เท่านั้น (ADMIN ก็ทำไม่ได้แล้วตามบรีฟแม่)
+    if (!session || session.user.role !== "COURSE_INSTRUCTOR") {
+      return NextResponse.json({ error: "คุณไม่มีสิทธิ์ดำเนินการในส่วนนี้" }, { status: 403 });
+    }
+
     const params = await context.params;
-    
-    // 2. ดึง ID มาแปลงเป็นตัวเลข
     const targetId = parseInt(params.id, 10);
 
-    // กันเหนียว: เช็คว่าได้ ID มาเป็นตัวเลขจริงๆ ไหม
     if (!targetId || isNaN(targetId)) {
       return NextResponse.json({ error: "ID ไม่ถูกต้อง" }, { status: 400 });
     }
 
-    // 3. ดึงข้อมูล status ที่หน้าบ้านส่งมา (APPROVED / REJECTED)
     const body = await request.json();
     const { status } = body; 
 
@@ -28,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ error: "ไม่พบสถานะที่ต้องการอัปเดต" }, { status: 400 });
     }
 
-    // 4. สั่ง Prisma อัปเดตข้อมูล
+    // สั่ง Prisma อัปเดตข้อมูล
     const updatedEstablishment = await prisma.establishment.update({
       where: { id: targetId },
       data: { status: status },

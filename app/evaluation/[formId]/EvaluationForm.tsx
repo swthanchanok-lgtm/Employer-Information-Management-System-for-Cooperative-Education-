@@ -1,146 +1,208 @@
 'use client'
 
-import { useState } from 'react'
-import { submitEvaluation } from '@/app/actions/submitEvaluation' // Action ที่เราสร้างกันไว้ก่อนหน้านี้
+import { useState, useRef } from 'react'
+import { submitEvaluation } from '@/app/actions/submitEvaluation'
 import { useRouter } from 'next/navigation'
-
-// กำหนด Type ให้ตรงกับ Database
-type Question = {
-  id: number
-  questionText: string
-  inputType: string
-  orderIndex: number
-}
+import { SignatureBlock } from '@/components/SignatureBlock'
+import { useSession } from 'next-auth/react'
 
 type FormProps = {
-  form: {
-    id: number
-    title: string
-    description: string | null
-    questions: Question[]
-  }
+  forms: any[]
+  student: any
 }
 
-export default function EvaluationForm({ form }: FormProps) {
+export default function EvaluationForm({ forms, student }: FormProps) {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  
-  // State เก็บคำตอบ: { questionId: value }
-  const [answers, setAnswers] = useState<Record<number, string | number>>({})
+  const { data: session } = useSession()
 
-  // ฟังก์ชันอัปเดตคำตอบ
+  const [currentStep, setCurrentStep] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [answers, setAnswers] = useState<Record<number, string | number>>({})
+  const [imageFile, setImageFile] = useState<File | null>(null)
+
+  const sigRefTeacher = useRef<any>(null)
+  const sigRefMentor = useRef<any>(null)
+
+  const form1 = forms?.[0]
+  const form2 = forms?.[1]
+
   const handleAnswerChange = (qId: number, value: string | number) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }))
   }
 
-  // ฟังก์ชันกดส่ง
+  const nextStep = () => {
+    window.scrollTo(0, 0)
+    setCurrentStep(prev => prev + 1)
+  }
+
+  const prevStep = () => {
+    window.scrollTo(0, 0)
+    setCurrentStep(prev => prev - 1)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!confirm('ยืนยันการส่งแบบประเมิน?')) return
+    if (currentStep < 3) {
+      nextStep()
+      return
+    }
 
+    if (!confirm('ยืนยันการบันทึกข้อมูลทั้งหมด?')) return
     setIsSubmitting(true)
 
-    // ข้อมูลสมมติ (ของจริงต้องดึงจาก Login Session)
-    const mockEvaluatorId = 101 
-    const mockStudentId = 505
+    const teacherSig = sigRefTeacher.current?.getCanvas().isEmpty() ? null : sigRefTeacher.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
+    const mentorSig = sigRefMentor.current?.getCanvas().isEmpty() ? null : sigRefMentor.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
 
-    // แปลงข้อมูลให้ตรงกับรูปแบบที่ Server Action ต้องการ
+    // 🚩 กรอง ID ปลอม (ที่บวก 1000) ออกก่อนส่ง Database
+    const formattedAnswers = Object.entries(answers)
+      .filter(([qId]) => Number(qId) < 1000) 
+      .map(([qId, val]) => {
+        const id = Number(qId);
+        const note = answers[id + 1000];
+
+        return {
+          question_id: id,
+          score: typeof val === 'number' ? val : null,
+          answer_text: typeof val === 'string' ? val : (note ? String(note) : null),
+        };
+      });
+
     const payload = {
-      formId: form.id,
-      evaluatorId: mockEvaluatorId,
-      studentId: mockStudentId,
-      answers: Object.entries(answers).map(([qId, val]) => ({
-        question_id: Number(qId),
-        score: typeof val === 'number' ? val : null,
-        answer_text: typeof val === 'string' ? val : null,
-      })),
+      formId: Number(form1?.id),
+      evaluatorId: Number(session?.user?.id),
+      studentId: Number(student?.id),
+      teacherSignature: teacherSig,
+      mentorSignature: mentorSig,
+      answers: formattedAnswers,
     }
 
     try {
       const result = await submitEvaluation(payload)
       if (result.success) {
-        alert('บันทึกสำเร็จ! ขอบคุณสำหรับการประเมิน')
-        router.push('/') // ส่งเสร็จกลับหน้าแรก
+        alert('บันทึกสำเร็จแล้วจ้าแม่! กำลังไปหน้า QR Code นะจ๊ะ')
+        router.push(`/instructor/generate-qr?studentId=${student?.id}`)
       } else {
-        alert('เกิดข้อผิดพลาด: ' + result.message)
+        alert('อุ๊ย! พังจ้า: ' + result.message)
       }
     } catch (error) {
-      alert('Error connecting to server')
+      console.error("Submit Error:", error)
+      alert('ติดต่อ Server ไม่ได้จ้าแม่')
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  if (!student?.id) return <div className="p-10 text-center">❌ ไม่พบข้อมูลนักศึกษา</div>
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-lg overflow-hidden">
-      
-      {/* ส่วนหัว Header */}
-      <div className="bg-blue-600 px-6 py-8 text-white">
-        <h1 className="text-2xl font-bold">{form.title}</h1>
-        <p className="mt-2 text-blue-100">{form.description}</p>
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-5xl mx-auto p-4 pb-20">
+
+      {/* --- ส่วนหัว (โชว์ทุก Step) --- */}
+      <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 text-slate-700">
+        <div className="text-center space-y-2">
+          <p className="text-sm font-black text-blue-600 tracking-widest uppercase">Step {currentStep} of 3</p>
+          <h2 className="text-2xl font-black italic text-[#2B4560]">แบบบันทึกการนิเทศงานสหกิจศึกษา</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-6">
+          <p><strong>ชื่อสถานประกอบการ:</strong> {student?.establishment?.name || 'ไม่ระบุ'}</p>
+          <p><strong>นักศึกษา:</strong> {student?.name || 'ไม่ระบุ'}</p>
+          <p><strong>สาขาวิชา:</strong> {student?.department || 'ไม่ระบุ'}</p>
+          <p><strong>เบอร์โทรศัพท์:</strong> {student?.establishment?.contact || 'ไม่ระบุ'}</p>
+        </div>
       </div>
 
-      {/* ส่วนคำถาม Loop ตามข้อมูลจริง */}
-      <div className="p-8 space-y-8">
-        {form.questions.map((q, index) => (
-          <div key={q.id} className="border-b border-gray-100 pb-6 last:border-0">
-            <div className="flex items-start gap-3 mb-4">
-              <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-bold text-sm">
-                {index + 1}
-              </span>
-              <p className="text-gray-800 font-medium mt-1 text-lg">
-                {q.questionText}
-              </p>
+      {/* 🟢 STEP 1: ลายเซ็น + แบบสัมภาษณ์นักศึกษา */}
+      {currentStep === 1 && (
+        <>
+          {/* ✅ ย้ายมาไว้ตรงนี้ ตามที่แม่ต้องการ: อยู่ในส่วนที่ 1 ก่อนคำชี้แจง */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+              <p className="font-black text-[#2B4560] mb-4 text-center">ลายเซ็นอาจารย์นิเทศ</p>
+              <SignatureBlock ref={sigRefTeacher} name={session?.user?.name || "..................."} position="อาจารย์นิเทศ" />
             </div>
-
-            {/* แสดงผลตามประเภทคำถาม */}
-            <div className="pl-11">
-              {q.inputType === 'rating' ? (
-                // --- แบบ Rating (1-5) ---
-                <div className="flex flex-wrap gap-4">
-                  {[1, 2, 3, 4, 5].map((score) => (
-                    <label key={score} className="cursor-pointer group">
-                      <input
-                        type="radio"
-                        name={`q-${q.id}`}
-                        value={score}
-                        className="peer sr-only" // ซ่อน Radio ปุ่มเดิม
-                        onChange={() => handleAnswerChange(q.id, score)}
-                        required
-                      />
-                      <div className="w-12 h-12 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-500 font-medium transition-all peer-checked:border-blue-500 peer-checked:bg-blue-500 peer-checked:text-white hover:border-blue-300">
-                        {score}
-                      </div>
-                      <span className="text-xs text-center block mt-1 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {score === 1 ? 'น้อย' : score === 5 ? 'มาก' : ''}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                // --- แบบ Textarea (ข้อเขียน) ---
-                <textarea
-                  className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-shadow min-h-[120px]"
-                  placeholder="พิมพ์ความคิดเห็นของคุณที่นี่..."
-                  onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                  required
-                />
-              )}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+              <p className="font-black text-[#2B4560] mb-4 text-center">ลายเซ็นพี่เลี้ยง</p>
+              <SignatureBlock ref={sigRefMentor} name="..................." position="พี่เลี้ยง/ผู้ประเมิน" />
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* ปุ่มกดส่ง */}
-      <div className="px-8 py-6 bg-gray-50 flex justify-end">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform transition hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? 'กำลังบันทึก...' : 'ส่งผลการประเมิน'}
+          <div className="bg-amber-50 border-l-8 border-amber-400 p-6 rounded-r-[2rem] shadow-sm">
+            <h3 className="text-xl font-black text-amber-900 mb-2">💡 คำชี้แจง</h3>
+            <p className="text-amber-800 font-bold text-sm">เกณฑ์การประเมิน: 5 (มากที่สุด) - 1 (น้อยที่สุด)</p>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
+            <h3 className="text-xl font-black text-blue-600 border-b pb-4">ส่วนที่ 1: {form1?.title || 'แบบสัมภาษณ์นักศึกษา'}</h3>
+            {form1?.questions?.filter((q: any) => q.questionText !== 'หมายเหตุ').map((q: any, index: number) => (
+              <QuestionItem key={q.id} q={q} index={index} handleAnswerChange={handleAnswerChange} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 🔵 STEP 2: แบบสัมภาษณ์พี่เลี้ยง */}
+      {currentStep === 2 && (
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-10">
+          <h3 className="text-xl font-black text-emerald-600 border-b pb-4">ส่วนที่ 2: {form2?.title || 'แบบสัมภาษณ์พี่เลี้ยง'}</h3>
+          {form2?.questions?.filter((q: any) => q.questionText !== 'หมายเหตุ').map((q: any, index: number) => (
+            <QuestionItem key={q.id} q={q} index={index} handleAnswerChange={handleAnswerChange} />
+          ))}
+        </div>
+      )}
+
+      {/* 🟠 STEP 3: รูปถ่าย */}
+      {currentStep === 3 && (
+        <div className="space-y-8">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-xl font-black text-[#2B4560] mb-4">📸 รูปถ่ายขณะนิเทศงาน</h3>
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:bg-slate-100 file:text-[#2B4560] cursor-pointer" />
+          </div>
+        </div>
+      )}
+
+      {/* --- ปุ่มนำทาง --- */}
+      <div className="flex justify-between items-center pt-10">
+        {currentStep > 1 ? (
+          <button type="button" onClick={prevStep} className="bg-slate-200 text-slate-600 font-black py-4 px-10 rounded-full hover:bg-slate-300 transition-all">
+            ⬅ ย้อนกลับ
+          </button>
+        ) : <div />}
+
+        <button type="submit" disabled={isSubmitting} className="bg-[#2B4560] text-white font-black py-5 px-14 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all">
+          {currentStep === 3
+            ? (isSubmitting ? 'กำลังบันทึก...' : '✅ บันทึกและรับ QR Code')
+            : 'ถัดไป ➡'}
         </button>
       </div>
     </form>
+  )
+}
+
+function QuestionItem({ q, index, handleAnswerChange }: any) {
+  return (
+    <div className="pb-8 border-b border-slate-50 last:border-0">
+      <div className="flex items-start gap-4 mb-4">
+        <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-[#2B4560] font-black text-sm">{index + 1}</span>
+        <p className="text-slate-700 font-bold text-lg leading-tight">{q.questionText}</p>
+      </div>
+      <div className="pl-12">
+        {q.inputType === 'rating' ? (
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((score) => (
+                <label key={score} className="relative cursor-pointer">
+                  <input type="radio" name={`q-${q.id}`} className="peer sr-only" onChange={() => handleAnswerChange(q.id, score)} required />
+                  <div className="w-10 h-10 rounded-lg border-2 border-slate-100 flex items-center justify-center text-slate-400 font-black peer-checked:bg-[#2B4560] peer-checked:text-white transition-all">{score}</div>
+                </label>
+              ))}
+            </div>
+            <input type="text" placeholder="หมายเหตุ" className="flex-1 min-w-[200px] p-2 border-b border-slate-200 outline-none text-sm" onChange={(e) => handleAnswerChange(q.id + 1000, e.target.value)} />
+          </div>
+        ) : (
+          <textarea className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-[#2B4560]" placeholder="ระบุเพิ่มเติม..." onChange={(e) => handleAnswerChange(q.id, e.target.value)} />
+        )}
+      </div>
+    </div>
   )
 }
