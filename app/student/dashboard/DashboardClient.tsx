@@ -11,10 +11,12 @@ import {
 
 export function DashboardClient({
   initialJobs = [], 
+  initialEstablishments = [], // 👈 เพิ่มบรรทัดนี้จ้า!
   currentUser,
   application
 }: {
   initialJobs?: any[],
+  initialEstablishments?: any[], // 👈 และเพิ่มตรง Type นี้ด้วยจ้าแม่!
   currentUser?: any,
   application?: any
 }) {
