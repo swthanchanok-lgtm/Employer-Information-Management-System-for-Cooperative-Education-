@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Search, UserPlus, Users, CheckCircle2, Circle } from 'lucide-react';
 
 export default function AdminSupervisionClient({ initialStudents, supervisors }: any) {
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState(initialStudents || []);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleAssignGroup = async (studentId: number, teacherIds: number[]) => {
@@ -14,9 +14,19 @@ export default function AdminSupervisionClient({ initialStudents, supervisors }:
         body: JSON.stringify({ studentId, teacherIds }),
       });
       if (res.ok) {
-        const updatedGroup = await res.json();
+        // 🚩 แก้ตรงนี้จ้ะแม่! ดึงข้อมูลอาจารย์แบบเต็มๆ มายัดใส่หน้าจอเองเลย ไม่ต้องง้อรอรีเฟรช
+        const selectedInstructors = supervisors.filter((sv: any) => teacherIds.includes(sv.id));
+
         setStudents(students.map((s: any) =>
-          s.id === studentId ? { ...s, supervisionGroup: updatedGroup } : s
+          s.id === studentId 
+            ? { 
+                ...s, 
+                supervisionGroup: { 
+                  ...s.supervisionGroup, 
+                  instructors: selectedInstructors // เอาข้อมูลอัปเดตใส่เข้าไปเลย จอจะเปลี่ยนสีทันที!
+                } 
+              } 
+            : s
         ));
       }
     } catch (error) {
@@ -24,13 +34,13 @@ export default function AdminSupervisionClient({ initialStudents, supervisors }:
     }
   };
 
-  const filteredStudents = students.filter((s: any) =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.username.includes(searchTerm)
-  );
+  const filteredStudents = students?.filter((s: any) =>
+    s?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s?.username?.includes(searchTerm)
+  ) || [];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6"> {/* 🚩 บีบหน้าจอให้เกาะกลุ่มกัน */}
+    <div className="max-w-6xl mx-auto space-y-6"> 
       
       {/* Search Bar & Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50">
@@ -53,8 +63,10 @@ export default function AdminSupervisionClient({ initialStudents, supervisors }:
 
       {/* List Card Container */}
       <div className="space-y-4">
-        {filteredStudents.map((student: any, index: number) => {
-          const currentTeacherIds = student.supervisionGroup?.instructors.map((i: any) => i.id) || [];
+        {filteredStudents?.map((student: any, index: number) => {
+          
+          const currentTeacherIds = student.supervisionGroup?.instructors?.map((i: any) => i.id) || [];
+          
           const hasTeam = currentTeacherIds.length > 0;
 
           return (
@@ -77,11 +89,11 @@ export default function AdminSupervisionClient({ initialStudents, supervisors }:
                   </div>
                 </div>
 
-                {/* 2. ทีมอาจารย์ (จัดวางแบบ Pills สวยๆ) */}
+                {/* 2. ทีมอาจารย์ */}
                 <div className="col-span-12 md:col-span-6 border-l border-r border-slate-50 px-4">
                   <p className="text-[10px] font-black text-slate-300 uppercase mb-2 tracking-widest px-2">เลือกทีมอาจารย์นิเทศ</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {supervisors.map((sv: any) => {
+                    {supervisors?.map((sv: any) => {
                       const isSelected = currentTeacherIds.includes(sv.id);
                       return (
                         <button
@@ -124,9 +136,9 @@ export default function AdminSupervisionClient({ initialStudents, supervisors }:
         })}
       </div>
 
-      {filteredStudents.length === 0 && (
+      {filteredStudents?.length === 0 && (
         <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 text-slate-300 font-bold">
-          ไม่พบรายชื่อนักศึกษาที่ค้นหาจ้าแม่
+          ไม่พบรายชื่อนักศึกษาจ้าแม่
         </div>
       )}
     </div>

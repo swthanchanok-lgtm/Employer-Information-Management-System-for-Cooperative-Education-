@@ -40,6 +40,7 @@ export default function EvaluationForm({ forms, student }: FormProps) {
     setCurrentStep(prev => prev - 1)
   }
 
+  // 👇👇👇 บัวแก้เฉพาะตรงนี้จ้า: แยกเซฟฟอร์ม 1 กับฟอร์ม 2 👇👇👇
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (currentStep < 3) {
@@ -53,7 +54,7 @@ export default function EvaluationForm({ forms, student }: FormProps) {
     const teacherSig = sigRefTeacher.current?.getCanvas().isEmpty() ? null : sigRefTeacher.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
     const mentorSig = sigRefMentor.current?.getCanvas().isEmpty() ? null : sigRefMentor.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
 
-    // 🚩 กรอง ID ปลอม (ที่บวก 1000) ออกก่อนส่ง Database
+    // 🚩 1. จัดรูปแบบคำตอบทั้งหมดก่อน (กรอง ID ปลอมออก)
     const formattedAnswers = Object.entries(answers)
       .filter(([qId]) => Number(qId) < 1000) 
       .map(([qId, val]) => {
@@ -67,22 +68,40 @@ export default function EvaluationForm({ forms, student }: FormProps) {
         };
       });
 
-    const payload = {
-      formId: Number(form1?.id),
-      evaluatorId: Number(session?.user?.id),
-      studentId: Number(student?.id),
-      teacherSignature: teacherSig,
-      mentorSignature: mentorSig,
-      answers: formattedAnswers,
-    }
+    // 🚩 2. แยกคำตอบให้ "ฟอร์ม 1"
+    const form1QuestionIds = form1?.questions?.map((q: any) => q.id) || [];
+    const form1Answers = formattedAnswers.filter(a => form1QuestionIds.includes(a.question_id));
+
+    // 🚩 3. แยกคำตอบให้ "ฟอร์ม 2"
+    const form2QuestionIds = form2?.questions?.map((q: any) => q.id) || [];
+    const form2Answers = formattedAnswers.filter(a => form2QuestionIds.includes(a.question_id));
 
     try {
-      const result = await submitEvaluation(payload)
-      if (result.success) {
-        alert('บันทึกสำเร็จแล้วจ้าแม่! กำลังไปหน้า QR Code นะจ๊ะ')
+      // 🚀 ยิง API รอบที่ 1: บันทึกของฟอร์ม 1
+      const res1 = await submitEvaluation({
+        formId: Number(form1?.id),
+        evaluatorId: Number(session?.user?.id),
+        studentId: Number(student?.id),
+        teacherSignature: teacherSig,
+        mentorSignature: mentorSig,
+        answers: form1Answers,
+      });
+
+      // 🚀 ยิง API รอบที่ 2: บันทึกของฟอร์ม 2
+      const res2 = await submitEvaluation({
+        formId: Number(form2?.id),
+        evaluatorId: Number(session?.user?.id),
+        studentId: Number(student?.id),
+        teacherSignature: teacherSig,
+        mentorSignature: mentorSig,
+        answers: form2Answers,
+      });
+
+      if (res1.success && res2.success) {
+        alert('บันทึกสำเร็จครบทั้ง 2 ส่วนแล้วจ้าแม่! กำลังไปหน้า QR Code นะจ๊ะ')
         router.push(`/instructor/generate-qr?studentId=${student?.id}`)
       } else {
-        alert('อุ๊ย! พังจ้า: ' + result.message)
+        alert('อุ๊ย! มีบางส่วนบันทึกไม่สมบูรณ์จ้า ลองใหม่อีกทีนะ')
       }
     } catch (error) {
       console.error("Submit Error:", error)
@@ -91,6 +110,7 @@ export default function EvaluationForm({ forms, student }: FormProps) {
       setIsSubmitting(false)
     }
   }
+  // 👆👆👆 จบส่วนที่แก้จ้า 👆👆👆
 
   if (!student?.id) return <div className="p-10 text-center">❌ ไม่พบข้อมูลนักศึกษา</div>
 

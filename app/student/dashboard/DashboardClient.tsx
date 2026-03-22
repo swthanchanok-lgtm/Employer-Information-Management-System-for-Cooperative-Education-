@@ -135,10 +135,10 @@ export function DashboardClient({
             <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Dashboard Status Overview</p>
           </div>
           {currentTerm && (
-            <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-50 text-sm font-black text-[#2B4560]">
-              ปีการศึกษา {currentTerm.semester}/{currentTerm.year}
-            </div>
-          )}
+                <span className="text-xl md:text-2xl font-medium text-slate-300 tracking-normal border-l-2 border-white/20 pl-4">
+                  ภาคเรียนที่ {currentTerm.semester}/{currentTerm.year}
+                </span>
+              )}
           <Link href="/establishments/add">
             <button className="w-full py-4 bg-[#2B4560] text-white rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg shadow-emerald-100 hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
               <Building2 size={16} />

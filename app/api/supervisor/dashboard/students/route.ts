@@ -13,20 +13,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const teacherId = Number(session.user.id); 
+    const teacherId = Number(session.user.id);
 
     const supervisionGroups = await prisma.supervisionGroup.findMany({
-      // ✅ เปิดใช้งาน where เพื่อกรองเฉพาะเด็กของอาจารย์ที่ล็อกอิน
       where: {
-      instructors: {
-        some: { id: teacherId } // 👈 ต้องมีบรรทัดนี้เพื่อกรองเอาเฉพาะเด็กของอาจารย์คนนี้
-      }
+        // 1. กรองเฉพาะกลุ่มที่อาจารย์คนนี้ดูแล
+        instructors: {
+          some: { id: teacherId }
+        },
+        // 🚩 2. [เพิ่มใหม่] กรองให้ดึงเฉพาะนักศึกษาที่เป็นปีปัจจุบันเท่านั้น!
+        student: {
+          academicYear: {
+            isCurrent: true
+          }
+        }
       },
       include: {
-        student: { 
+        student: {
           include: {
+            academicYear: true, // ดึงข้อมูลปีมาด้วยเผื่อใช้โชว์
             establishment: true,
             supervisionsReceived: {
+              // 🚩 3. [เสริม] ถ้าต้องการนิเทศแค่ของปีนี้ 
+              // ต้องระวังว่าถ้าไม่กรองวันที่ มันจะไปดึงประวัติเก่าของเด็กมาโชว์ว่า "นิเทศแล้ว"
               orderBy: { createdAt: 'desc' },
               take: 1
             }
@@ -37,10 +46,10 @@ export async function GET(request: Request) {
 
     const students = supervisionGroups
       .map((group) => group.student)
-      .filter((student) => student !== null && student !== undefined); 
+      .filter((student) => student !== null && student !== undefined);
 
     let supervisedCount = 0;
-    
+
     const formattedStudents = students.map((std) => {
       const isSupervised = std.supervisionsReceived && std.supervisionsReceived.length > 0;
       if (isSupervised) supervisedCount++;
@@ -49,7 +58,7 @@ export async function GET(request: Request) {
         id: std.id,
         firstName: std.name,
         lastName: std.surname || '',
-        studentCode: std.username, 
+        studentCode: std.username,
         major: std.department,
         companyName: std.establishment?.name || null,
         isSupervised: isSupervised,
@@ -60,7 +69,7 @@ export async function GET(request: Request) {
     const stats = {
       total: students.length,
       supervised: supervisedCount,
-      evaluated: 0, 
+      evaluated: 0,
       pending: students.length - supervisedCount
     };
 

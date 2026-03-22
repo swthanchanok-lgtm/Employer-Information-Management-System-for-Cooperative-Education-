@@ -19,7 +19,7 @@ export default function InstructorSidebar() {
   { name: 'แดชบอร์ด', href: '/teachers/instructor/dashboard', icon: <LayoutDashboard size={20} /> },
   { name: 'จัดการปีการศึกษา', href: '/teachers/instructor/academic', icon: <CalendarDays size={20} /> },
   { name: 'รายชื่อนักศึกษา', href: '/teachers/instructor/students', icon: <Users size={20} /> },
-  { name: 'สถานประกอบการ', href: '/teachers/instructor/establishments', icon: <Building2 size={20} /> },
+  { name: 'สถานประกอบการ', href: '/student/establishments', icon: <Building2 size={20} /> },
   { name: 'อนุมัติสถานประกอบการ', href: '/teachers/instructor/approve-establishments', icon: <Building2 size={20} /> },
   { name: 'อนุมัติตำแหน่งงาน', href: '/teachers/instructor/approve-jobs', icon: <Building2 size={20} /> },
   { name: 'คำร้องขอฝึกงาน', href: '/teachers/instructor/applications', icon: <Building2 size={20} /> },

@@ -35,8 +35,8 @@ export default async function AdminSupervisionPage() {
     <div className="p-8">
       <h1 className="text-2xl font-black mb-6">จัดทีมอาจารย์นิเทศ (กลุ่ม)</h1>
       <AdminSupervisionClient 
-        initialStudents={JSON.parse(JSON.stringify(students))} 
-        supervisors={supervisors} 
+        initialStudents={students ? JSON.parse(JSON.stringify(students)) : []}
+        supervisors={supervisors || []}
       />
     </div>
   );

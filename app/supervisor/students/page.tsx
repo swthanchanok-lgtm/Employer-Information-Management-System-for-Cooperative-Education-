@@ -1,58 +1,61 @@
-// 📄 ไฟล์: app/supervisor/dashboard/page.tsx
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PrismaClient } from '@prisma/client';
-import SupervisionClient from "@/app/components/SupervisionClient"; 
+import SupervisionClient from "@/app/components/SupervisionClient";
 
 const prisma = new PrismaClient();
 
 export default async function Page() {
   const session = await getServerSession(authOptions);
-  
-  // 1. เช็คว่าล็อกอินไหม
+
   if (!session || !session.user) {
     redirect("/login");
   }
 
   const teacherId = Number(session.user.id);
 
-  // 2. ดึงข้อมูลนักศึกษาจาก Database โดยตรงเลยแม่! (จบปัญหา 401)
+  // 1. ดึงข้อมูลนักศึกษาในกลุ่มที่อาจารย์คนนี้ดูแล
   const supervisionGroups = await prisma.supervisionGroup.findMany({
     where: {
       instructors: {
-        some: { id: teacherId } 
+        some: { id: teacherId }
       }
     },
     include: {
-      student: { 
+      student: {
         include: {
           establishment: true,
           supervisionsReceived: {
-            orderBy: { createdAt: 'desc' },
-            take: 1
+            orderBy: { createdAt: 'desc' }
           }
         }
       }
     }
   });
 
-  // 3. ปรับ Format ข้อมูลให้น้อง SupervisionClient (ไฟล์ลูก) เอาไปใช้ง่ายๆ
+  // 2. ปรับ Format เฉพาะส่วนที่จำเป็นต้องใช้ในตารางรายชื่อ
   const formattedStudents = supervisionGroups
     .map((group) => group.student)
     .filter((std) => std !== null)
     .map((std: any) => ({
       ...std,
+      firstName: std.name || "ไม่มีชื่อ", 
+      lastName: std.surname || "",
+      establishmentName: std.establishment?.name || "ยังไม่ระบุ",
+      visitCount: std.supervisionsReceived?.length || 0,
       isSupervised: std.supervisionsReceived && std.supervisionsReceived.length > 0,
+      lastSupervisionDate: std.supervisionsReceived?.[0]?.createdAt || null
     }));
 
   return (
-    <div className="p-8">
-       {/* 🚩 ส่งข้อมูลที่ดึงได้สดๆ ให้ไฟล์ลูกเลยจ้า */}
-       <SupervisionClient 
-          initialStudents={formattedStudents} 
-          isSupervisorView={true} 
-       />
+    <div className="min-h-screen bg-[#F8FAFC] p-4 md:p-8">
+      {/* 🚩 ส่งไปแค่รายชื่อ ไม่ต้องส่ง stats แล้วจ้า */}
+      <SupervisionClient
+        initialStudents={formattedStudents}
+        isSupervisorView={true}
+        showStats={false}
+      />
     </div>
   );
 }

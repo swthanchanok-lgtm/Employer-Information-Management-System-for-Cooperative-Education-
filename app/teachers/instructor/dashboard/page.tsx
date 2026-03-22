@@ -141,7 +141,7 @@ export default function DashboardPage({
                 </Link>
 
                 {/* 🌟 การ์ด 3: คำร้อง */}
-                <Link href="/teachers/instructor/approve-applications" className="relative overflow-hidden block p-8 bg-white border border-slate-100 rounded-[2rem] hover:shadow-2xl hover:shadow-rose-500/10 hover:-translate-y-1 transition-all duration-300 group">
+                <Link href="/teachers/instructor/applications" className="relative overflow-hidden block p-8 bg-white border border-slate-100 rounded-[2rem] hover:shadow-2xl hover:shadow-rose-500/10 hover:-translate-y-1 transition-all duration-300 group">
                   <div className="absolute -right-4 -bottom-4 opacity-[0.02] group-hover:scale-110 group-hover:opacity-5 transition-all duration-500">
                     <FileText size={140} />
                   </div>

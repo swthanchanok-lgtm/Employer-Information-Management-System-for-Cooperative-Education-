@@ -1,13 +1,13 @@
 'use client';
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, ShieldCheck, ClipboardCheck, Building2, GraduationCap, CalendarDays, AlertTriangle } from 'lucide-react';
+import { Search, ShieldCheck, Building2, GraduationCap, CalendarDays, CheckCircle2 } from 'lucide-react';
 
-export default function SupervisionClient({ initialStudents = [], supervisors = [], isSupervisorView = false }: any) {
+// 🚩 บัวเพิ่มแค่ตัวแปร showStats = true เข้ามาใน Props นะจ๊ะ
+export default function SupervisionClient({ initialStudents = [], supervisors = [], isSupervisorView = false, showStats = true }: any) {
   const [assignments, setAssignments] = useState<any>(initialStudents);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 🚩 บันทึกทีมอาจารย์อัตโนมัติสำหรับ Admin (คงไว้เหมือนเดิมเป๊ะ)
   const handleToggleAutoSave = async (studentId: number, teacherIds: number[]) => {
     try {
       const res = await fetch('/api/admin/assign-supervision-group', {
@@ -32,9 +32,8 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
     (s.username && s.username.includes(searchTerm))
   );
 
-  // 🚩 คำนวณสถิติจากข้อมูลที่มีอยู่ (ไม่ต้องไปแก้ไฟล์แม่)
   const total = assignments.length;
-  const supervisedCount = assignments.filter((s: any) => s.supervisionRecords && s.supervisionRecords.length > 0).length;
+  const supervisedCount = assignments.filter((s: any) => s.isSupervised).length;
   const pendingCount = total - supervisedCount;
   const establishmentCount = new Set(assignments.map((s: any) => s.establishment?.id).filter(Boolean)).size;
   const supervisedPercent = total > 0 ? ((supervisedCount / total) * 100).toFixed(1) : 0;
@@ -53,16 +52,8 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
         </h1>
       </header>
 
-      {/* 🚩 แถบแจ้งเตือน (โชว์เฉพาะโหมดอาจารย์และมีคนค้าง) */}
-      {isSupervisorView && pendingCount > 0 && (
-        <div className="bg-[#FFF8E6] border border-[#FFE082] p-4 rounded-lg flex items-center gap-3 text-[#B78103] text-sm font-bold shadow-sm">
-          <AlertTriangle size={18} />
-          <span>แจ้งเตือน: มีนักศึกษา {pendingCount} รายที่ยังไม่ได้รับการนิเทศรอบแรก กรุณาดำเนินการ</span>
-        </div>
-      )}
-
-      {/* 🚩 การ์ดสถิติ 4 ใบ (โชว์เฉพาะโหมดอาจารย์) */}
-      {isSupervisorView && (
+      {/* 🚩 บัวครอบเงื่อนไข showStats && เพิ่มเข้าไปตรงนี้ที่เดียวจ้ะ */}
+      {showStats && isSupervisorView && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl border border-slate-200 border-t-4 border-t-[#2B4560] shadow-sm">
             <p className="text-xs font-bold text-slate-500 mb-1">นักศึกษาทั้งหมด</p>
@@ -76,21 +67,18 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 shadow-sm">
             <p className="text-xs font-bold text-slate-500 mb-1">ประเมินเสร็จสิ้น</p>
-            <h3 className="text-3xl font-black text-[#1E293B]">0</h3>
+            <h3 className="text-3xl font-black text-[#1E293B]">{supervisedCount}</h3>
             <p className="text-[10px] text-slate-400 mt-1">มีผลการประเมินแล้ว</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-slate-200 border-t-4 border-t-red-500 shadow-sm">
             <p className="text-xs font-bold text-slate-500 mb-1">รอดำเนินการ</p>
             <h3 className="text-3xl font-black text-red-500">{pendingCount}</h3>
-            <p className="text-[10px] text-slate-400 mt-1">เกินกำหนดนิเทศ</p>
+            <p className="text-[10px] text-slate-400 mt-1">รอการนิเทศ</p>
           </div>
         </div>
       )}
 
-      {/* 🚩 ตารางข้อมูลแบบใหม่ */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden mt-4">
-        
-        {/* แถบหัวตาราง + ค้นหา */}
         <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-4">
           <div className="font-bold text-[#1E293B] border-l-4 border-amber-400 pl-3">
             รายชื่อนักศึกษาในความดูแล
@@ -123,9 +111,11 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
               {filteredStudents.length > 0 ? (
                 filteredStudents.map((student: any, index: number) => {
                   const currentTeacherIds = student.supervisionGroup?.instructors?.map((i: any) => i.id) || [];
-                  const lastRecord = student.supervisionRecords?.[0];
-                  const lastDate = lastRecord ? new Date(lastRecord.updatedAt).toLocaleDateString('th-TH') : 'ยังไม่มีการนิเทศ';
-                  const isSupervised = !!lastRecord;
+                  const isSupervised = student.isSupervised;
+                  const visitCount = student.visitCount || 0;
+                  const lastDate = student.lastVisitDate 
+                    ? new Date(student.lastVisitDate).toLocaleDateString('th-TH') 
+                    : 'ยังไม่มีการนิเทศ';
 
                   return (
                     <tr key={student.id} className="hover:bg-slate-50 transition-all">
@@ -153,13 +143,17 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
                         </div>
                       </td>
                       
-                      {/* คอลัมน์สถานะ (โชว์เฉพาะโหมดอาจารย์) */}
                       {isSupervisorView && (
                         <td className="p-4 text-center">
                           {isSupervised ? (
-                            <span className="text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded-md">นิเทศแล้ว</span>
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">
+                                <CheckCircle2 size={12} /> นิเทศแล้ว
+                              </span>
+                              <span className="text-[9px] text-emerald-500 font-black">ครั้งที่ {visitCount}</span>
+                            </div>
                           ) : (
-                            <span className="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded-md">ยังไม่นิเทศ</span>
+                            <span className="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded-md border border-red-100">ยังไม่นิเทศ</span>
                           )}
                         </td>
                       )}
@@ -168,8 +162,8 @@ export default function SupervisionClient({ initialStudents = [], supervisors = 
                         <div className="flex flex-wrap justify-center gap-2">
                           {isSupervisorView ? (
                             <Link href={`/supervisor/dashboard/evaluation/${student.id}`}>
-                              <button className="bg-[#1E293B] text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-blue-600 transition-colors shadow-sm">
-                                บันทึก
+                              <button className={`px-4 py-1.5 rounded-lg font-bold text-xs transition-all shadow-sm ${isSupervised ? 'bg-slate-100 text-[#2B4560] hover:bg-slate-200' : 'bg-[#1E293B] text-white hover:bg-blue-600'}`}>
+                                {isSupervised ? 'นิเทศเพิ่ม' : 'บันทึก'}
                               </button>
                             </Link>
                           ) : (

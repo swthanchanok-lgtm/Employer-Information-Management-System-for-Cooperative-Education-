@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client'; // เปลี่ยนจาก import { prisma } เป็นสร้างใหม่ หรือใช้ตัวที่มีอยู่
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+
+const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
@@ -13,28 +15,42 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { 
       studentId, 
-      score, // ถ้าแม่จะใช้คะแนน ต้องไปเพิ่มฟิลด์ score ใน Model Supervision ก่อนนะจ๊ะ
+      score, 
       comment, 
-      visitDate, 
-      teacherSignature, 
-      mentorSignature 
+      visitDate,
+      round // 🚩 รับค่า "ครั้งที่นิเทศ" มาจากหน้าเว็บด้วยนะแม่
     } = body;
 
-    // 🚩 บันทึกลงตาราง Supervision ตาม Schema ของแม่
+    // 🔍 1. เช็คข้อมูลเด็กก่อนว่าสังกัดปีการศึกษาไหน
+    const student = await prisma.user.findUnique({
+      where: { id: Number(studentId) },
+      include: { academicYear: true }
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: "ไม่พบข้อมูลนักศึกษาจ้า" }, { status: 404 });
+    }
+
+    // 🚩 2. [ดักไว้ก่อน] ถ้าเด็กไม่ได้อยู่ในปีการศึกษาปัจจุบัน (isCurrent: true)
+    // อาจารย์นิเทศไม่ควรจะบันทึกคะแนนย้อนหลังได้แบบสุ่มสี่สุ่มห้า
+    if (!student.academicYear?.isCurrent) {
+       return NextResponse.json({ 
+         error: "อุ๊ยแม่! เด็กคนนี้ไม่ได้อยู่ในปีการศึกษาปัจจุบันนะจ๊ะ บันทึกไม่ได้จ้า" 
+       }, { status: 400 });
+    }
+
+    // 🚩 3. บันทึกลงตาราง Supervision
     const newSupervision = await prisma.supervision.create({
       data: {
         studentId: Number(studentId),
-        teacherId: Number(session.user.id), // ✅ ใช้ teacherId ตาม Schema เป๊ะ!
+        teacherId: Number(session.user.id),
+        content: comment,
+        round: Number(round) || 1, // ✅ ใช้ค่าที่ส่งมา ถ้าไม่มีให้เป็น 1
+        score: score ? parseFloat(score) : null, // ✅ บันทึกคะแนน (อย่าลืมไปเพิ่มใน Schema นะแม่)
+        createdAt: visitDate ? new Date(visitDate) : new Date(), 
         
-        content: comment,       // ✅ แมพเข้าฟิลด์ content (String? @db.Text)
-        round: 1,               // ✅ ค่าเริ่มต้นเป็นครั้งที่ 1
-        
-        // หมายเหตุ: ใน Schema ของแม่ยังไม่มีฟิลด์ score, visitDate, signatures
-        // ถ้าแม่กด Save แล้ว Error ให้ไปเพิ่มฟิลด์พวกนี้ใน schema.prisma แล้ว migrate นะจ๊ะ
-        // หรือถ้ายังไม่เพิ่ม ให้คอมเมนต์บรรทัดข้างล่างนี้ไว้ก่อนจ้า
-        createdAt: new Date(visitDate), 
-        
-        // imageUrl: "ใส่ URL รูปถ้ามี",
+        // 💡 คำแนะนำ: ถ้าแม่ยอมเพิ่มฟิลด์ academicYearId ในตาราง Supervision
+        // แม่จะดึงคะแนนแยกปีได้ง่ายแบบ 300% เลยค่ะ!
       },
     });
 
@@ -48,7 +64,7 @@ export async function POST(request: Request) {
     console.error("Save Evaluation Error:", error);
     return NextResponse.json({ 
       success: false, 
-      error: "อุ๊ย! บันทึกลงฐานข้อมูลไม่ได้จ้า เช็คชื่อฟิลด์ใน Schema อีกทีน้า" 
+      error: "บันทึกไม่ได้จ้า เช็คชื่อฟิลด์หรือความสัมพันธ์ในฐานข้อมูลอีกทีน้า" 
     }, { status: 500 });
   }
 }

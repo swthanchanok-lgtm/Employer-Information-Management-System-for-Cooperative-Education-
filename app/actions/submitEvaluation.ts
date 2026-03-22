@@ -17,6 +17,9 @@ type SubmissionPayload = {
   evaluatorId: number
   studentId: number
   answers: AnswerInput[]
+  // 🚩 1. เพิ่ม 2 บรรทัดนี้ให้ Typescript รู้จักลายเซ็น
+  teacherSignature?: string | null
+  mentorSignature?: string | null
 }
 
 export async function submitEvaluation(payload: SubmissionPayload) {
@@ -29,8 +32,10 @@ export async function submitEvaluation(payload: SubmissionPayload) {
         formId: payload.formId,
         evaluatorId: payload.evaluatorId,
         studentId: payload.studentId,
-        // ถ้าคุณเพิ่ม column 'round' แล้ว ให้เปิดบรรทัดล่างนี้ครับ
-        // round: 1, 
+        
+        // 🚩 2. สั่งบันทึกลายเซ็นลง Database ด้วย
+        teacherSignatureUrl: payload.teacherSignature,
+        mentorSignatureUrl: payload.mentorSignature,
         
         // สร้างคำตอบลูกๆ (Nested Write)
         answers: {

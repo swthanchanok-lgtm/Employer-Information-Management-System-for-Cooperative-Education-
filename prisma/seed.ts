@@ -118,18 +118,19 @@ async function main() {
 
   // 2. สร้าง User Admin (ไม่มี password และใช้ roleId)
   const adminUser = await prisma.user.upsert({
-    where: { username: 'admin' },
-    update: {
-      roleId: adminRole.id
-    },
-    create: {
-      username: 'admin',
-      name: 'Super Admin',
-      email: 'admin@system.com',
-      department: 'IT Center',
-      roleId: adminRole.id, // ใช้เลข ID จาก Role ที่สร้างด้านบน
-    },
-  })
+  where: { username: 'admin' },
+  update: {},
+  create: {
+    username: 'admin',
+    email: 'admin@gmail.com',
+    name: 'Admin',
+    department: 'IT',
+    roleId: 1, // หรือตามที่แม่กำหนด
+    // 🚩 เพิ่ม 2 บรรทัดนี้เข้าไปในทุกๆ User ที่มีการสร้างใน Seed นะจ๊ะ
+    internshipStatus: 'NOT_STARTED', 
+    isEvaluated: false 
+  }
+})
 
   console.log('✅ Created Admin User:', adminUser.username)
   console.log('✅ Seeding finished successfully!')
