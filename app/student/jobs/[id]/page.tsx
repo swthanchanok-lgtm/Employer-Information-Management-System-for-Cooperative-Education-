@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
+// 🚩 ลบ Star ออกจาก import แล้วจ้า
 import { Building2, MapPin, ArrowLeft, Info, BadgeDollarSign, Bus, Home } from 'lucide-react';
 
 export default function StudentJobDetailPage() {
@@ -9,21 +10,23 @@ export default function StudentJobDetailPage() {
   const [job, setJob] = useState<any>(null);
   const router = useRouter();
   const [isApplying, setIsApplying] = useState(false);
-  // 💡 ไม่จำเป็นต้องใช้ currentTerm แล้วจ้ะ แต่บัวเก็บไว้เผื่อแม่อยากใช้ดึงข้อมูลโชว์บนหน้าเว็บเฉยๆ
 
   useEffect(() => {
-    // 🔍 ดึงข้อมูลงาน
     fetch(`/api/jobs/${id}`)
       .then(res => res.json())
       .then(data => setJob(data))
       .catch(err => console.error("Error:", err));
   }, [id]);
 
-  if (!job) return <div className="p-20 text-center font-bold text-slate-400 animate-pulse">กำลังดึงข้อมูลงานให้คุณธัญชนกนะจ๊ะ...</div>;
+  if (!job) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+       <div className="text-center font-black text-slate-300 animate-pulse tracking-widest uppercase text-xs">
+          กำลังดึงข้อมูลงานให้คุณธัญชนกนะจ๊ะ... ✨
+       </div>
+    </div>
+  );
 
   const handleApplyJob = async () => {
-    // 🚩 บัวลบ if (!currentTerm) ออกไปแล้วนะแม่! โค้ดจะวิ่งไหลลื่นเลย
-
     const confirmApply = window.confirm(`คุณต้องการยื่นคำร้องในตำแหน่ง ${job.title} ใช่หรือไม่?`);
     if (!confirmApply) return;
 
@@ -35,7 +38,6 @@ export default function StudentJobDetailPage() {
         body: JSON.stringify({
           jobId: job.id,
           establishmentId: job.establishment?.id,
-          // 🚩 บัวเอาการส่ง currentTerm ออกไปแล้ว เพราะหลังบ้านของแม่เก่งพอที่จะหาเองได้แล้วจ้ะ!
         }),
       });
 
@@ -61,11 +63,15 @@ export default function StudentJobDetailPage() {
           <ArrowLeft size={16} /> กลับสู่หน้าแดชบอร์ด
         </Link>
 
-        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 overflow-hidden border border-slate-100 relative">
+          
+          {/* 🚩 ลบก้อน Rating (ดาว) มุมขวาบนออกเรียบร้อยจ้าแม่ */}
+
           {/* Header งาน */}
           <div className="p-8 md:p-12 border-b border-slate-50">
             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
-              <div>
+              {/* 🚩 ลบ pr-20 ออกเพื่อให้หัวข้อขยายได้เต็มที่ */}
+              <div className="flex-1"> 
                 <span className="inline-block bg-blue-50 text-blue-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-[0.2em] mb-4">
                   ตำแหน่งงานที่เปิดรับ
                 </span>
@@ -74,53 +80,57 @@ export default function StudentJobDetailPage() {
                   <Building2 className="text-slate-300" /> {job.establishment?.name}
                 </p>
               </div>
-              <div className="w-24 h-24 rounded-3xl border-4 border-slate-50 overflow-hidden shadow-inner">
-                <img src={job.establishment?.imageUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab"} className="w-full h-full object-cover" />
+              <div className="w-24 h-24 rounded-3xl border-4 border-slate-50 overflow-hidden shadow-inner flex-shrink-0">
+                <img 
+                  src={job.establishment?.imageUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab"} 
+                  className="w-full h-full object-cover" 
+                  alt="Logo"
+                />
               </div>
             </div>
           </div>
 
-          {/* 🚩 ปุ่มยื่นคำร้อง */}
-          <button
-            onClick={handleApplyJob}
-            disabled={isApplying}
-            className={`w-full md:w-auto px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2
-                  ${isApplying
-                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                : 'bg-green-500 text-white hover:bg-green-600 hover:scale-105 active:scale-95 shadow-green-500/30'
-              }`}
-          >
-            {isApplying ? '⏳ กำลังยื่นคำร้อง...' : '✨ ยื่นคำร้องขอฝึกงาน'}
-          </button>
-
           <div className="p-8 md:p-12">
             {/* รายละเอียดเงินเดือน & สวัสดิการ */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <DetailBox icon={<BadgeDollarSign className="text-emerald-500" />} label="ค่าตอบแทน" value={`${job.salary?.toLocaleString()} บาท / เดือน`} color="bg-emerald-50" />
+              <DetailBox icon={<BadgeDollarSign className="text-emerald-500" />} label="ค่าตอบแทน" value={job.salary > 0 ? `${job.salary.toLocaleString()} บาท / เดือน` : "ตามตกลง"} color="bg-emerald-50" />
               <DetailBox icon={<Bus className="text-blue-500" />} label="รถรับส่ง" value={job.hasShuttle ? "มีบริการรถรับส่ง" : "ไม่มีบริการ"} color="bg-blue-50" />
               <DetailBox icon={<Home className="text-purple-500" />} label="ที่พัก" value={job.hasDorm ? "มีหอพักให้" : "ไม่มีหอพัก"} color="bg-purple-50" />
             </div>
+
+            {/* ปุ่มยื่นคำร้อง */}
+            <button
+              onClick={handleApplyJob}
+              disabled={isApplying}
+              className={`w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 mb-12
+                  ${isApplying
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                : 'bg-green-500 text-white hover:bg-green-600 hover:scale-[1.02] active:scale-95 shadow-green-500/30'
+              }`}
+            >
+              {isApplying ? '⏳ กำลังยื่นคำร้อง...' : '✨ ยื่นคำร้องขอฝึกงาน'}
+            </button>
 
             {/* รายละเอียดงาน */}
             <div className="mb-12">
               <h3 className="text-lg font-black text-[#2B4560] mb-4 flex items-center gap-2">
                 <Info size={22} className="text-blue-500" /> รายละเอียดงานและคุณสมบัติ
               </h3>
-              <div className="bg-slate-50 p-8 rounded-[2rem] text-slate-600 leading-relaxed font-medium">
+              <div className="bg-slate-50 p-8 rounded-[2rem] text-slate-600 leading-relaxed font-medium whitespace-pre-line border border-slate-100">
                 {job.description || "บริษัทนี้ยังไม่ได้ระบุรายละเอียดงานเพิ่มเติมจ้าแม่"}
               </div>
             </div>
 
-            {/* ส่วนเชื่อมต่อไปยังหน้าบริษัท (Highlight) */}
+            {/* ส่วนเชื่อมต่อไปยังหน้าบริษัท */}
             <div className="bg-[#2B4560] rounded-[2.5rem] p-8 md:p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-900/10">
               <div className="text-center md:text-left">
                 <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest mb-2">สนใจข้อมูลบริษัทเพิ่มเติม?</p>
                 <h4 className="text-2xl font-bold">ข้อมูลของ {job.establishment?.name}</h4>
-                <p className="text-blue-200 text-sm mt-1">ดูสถานที่ตั้ง, หมวดหมู่ และรีวิวบริษัทนี้</p>
+                <p className="text-blue-200 text-sm mt-1 text-pretty">ดูสถานที่ตั้ง, ช่องทางติดต่อ และอ่านรีวิวจากรุ่นพี่</p>
               </div>
-              <Link href={`/establishments/${job.establishment?.id}`}>
-                <button className="bg-white text-[#2B4560] px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg active:scale-95 flex items-center gap-2">
-                  <Building2 size={18} /> ดูโปรไฟล์บริษัท
+              <Link href={`/student/establishments/${job.establishment?.id}`}>
+                <button className="bg-white text-[#2B4560] px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-lg active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                  <Building2 size={18} /> ดูโปรไฟล์ & รีวิว
                 </button>
               </Link>
             </div>
@@ -131,7 +141,6 @@ export default function StudentJobDetailPage() {
   );
 }
 
-// Component ย่อยจะได้ดูสะอาดตาจ้าแม่
 const DetailBox = ({ icon, label, value, color }: any) => (
   <div className={`${color} p-6 rounded-3xl border border-white shadow-sm`}>
     <div className="bg-white w-10 h-10 rounded-xl flex items-center justify-center mb-4 shadow-sm">{icon}</div>

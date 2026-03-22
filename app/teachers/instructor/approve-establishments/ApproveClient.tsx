@@ -9,8 +9,6 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
   const router = useRouter();
   const [establishments, setEstablishments] = useState(initialData);
   const [loadingId, setLoadingId] = useState<number | null>(null);
-  
-  // 🚩 เพิ่ม State สำหรับเก็บข้อมูลบริษัทที่เลือกดู
   const [selectedEst, setSelectedEst] = useState<any | null>(null);
 
   const handleUpdateStatus = async (id: number, newStatus: string) => {
@@ -25,7 +23,10 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
       });
 
       if (res.ok) {
-        setEstablishments(prev => prev.filter(est => est.id !== id));
+        // 🚩 แก้ไขตรงนี้: เปลี่ยนจาก .filter (ลบทิ้ง) เป็น .map (อัปเดตข้อมูล)
+        setEstablishments(prev => prev.map(est => 
+          est.id === id ? { ...est, status: newStatus } : est
+        ));
         setSelectedEst(null); // ปิด Modal ถ้าเปิดอยู่
         router.refresh();
       } else {
@@ -69,16 +70,15 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {establishments.map((est) => (
-              <div key={est.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:shadow-md transition-shadow">
+              <div key={est.id} className={`bg-white p-6 rounded-3xl border ${est.status === 'APPROVED' ? 'border-emerald-200 bg-emerald-50/30' : est.status === 'REJECTED' ? 'border-red-200 bg-red-50/30' : 'border-slate-200'} shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6 hover:shadow-md transition-all`}>
                 
                 <div className="flex items-start gap-4 flex-1">
-                  <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl">
+                  <div className={`p-4 rounded-2xl ${est.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-600' : est.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
                     <Building2 size={28} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h2 className="text-lg font-bold text-slate-800">{est.name}</h2>
-                        {/* 🚩 ปุ่มดูรายละเอียด (ไอคอนเล็กๆ) */}
                         <button 
                           onClick={() => setSelectedEst(est)}
                           className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
@@ -98,28 +98,41 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
                   </div>
                 </div>
 
+                {/* 🚩 แก้ไขการแสดงปุ่ม: เช็คสถานะก่อนแสดงผล */}
                 <div className="flex gap-3 w-full md:w-auto border-t border-slate-100 pt-4 md:border-0 md:pt-0">
-                  <button 
-                    onClick={() => handleUpdateStatus(est.id, 'APPROVED')}
-                    disabled={loadingId === est.id}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all shadow-sm disabled:opacity-50"
-                  >
-                    {loadingId === est.id ? 'กำลังบันทึก...' : <><Check size={18} /> อนุมัติ</>}
-                  </button>
-                  <button 
-                    onClick={() => handleUpdateStatus(est.id, 'REJECTED')}
-                    disabled={loadingId === est.id}
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-200 active:scale-95 transition-all disabled:opacity-50"
-                  >
-                    <X size={18} /> ปฏิเสธ
-                  </button>
+                  {est.status === 'APPROVED' ? (
+                    <div className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-black cursor-default">
+                      <Check size={18} /> อนุมัติแล้ว
+                    </div>
+                  ) : est.status === 'REJECTED' ? (
+                    <div className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-black cursor-default">
+                      <X size={18} /> ปฏิเสธแล้ว
+                    </div>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleUpdateStatus(est.id, 'APPROVED')}
+                        disabled={loadingId === est.id}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                      >
+                        {loadingId === est.id ? 'กำลังบันทึก...' : <><Check size={18} /> อนุมัติ</>}
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateStatus(est.id, 'REJECTED')}
+                        disabled={loadingId === est.id}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-red-600 hover:border-red-200 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <X size={18} /> ปฏิเสธ
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* 🚩 MODAL รายละเอียด (จะเด้งเมื่อมีค่าใน selectedEst) */}
+        {/* MODAL รายละเอียด */}
         {selectedEst && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
             <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-in fade-in zoom-in duration-300 overflow-hidden">
@@ -170,7 +183,7 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
                     </div>
                   )}
 
-                  {/* 🚩 รายชื่อตำแหน่งงาน (Jobs) */}
+                  {/* รายชื่อตำแหน่งงาน */}
                   <div>
                     <div className="flex items-center gap-2 mb-4">
                         <Briefcase size={18} className="text-slate-800" />
@@ -199,21 +212,23 @@ export default function ApproveClient({ initialData, userRole }: { initialData: 
                   </div>
                 </div>
 
-                {/* ปุ่ม Action ภายใน Modal */}
-                <div className="flex gap-4 mt-8 border-t pt-6 border-slate-100">
-                    <button 
-                        onClick={() => handleUpdateStatus(selectedEst.id, 'APPROVED')}
-                        className="flex-1 bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all"
-                    >
-                        อนุมัติทันที
-                    </button>
-                    <button 
-                        onClick={() => handleUpdateStatus(selectedEst.id, 'REJECTED')}
-                        className="flex-1 bg-white border-2 border-slate-200 text-slate-500 py-4 rounded-2xl font-black hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
-                    >
-                        ปฏิเสธ
-                    </button>
-                </div>
+                {/* ปุ่ม Action ภายใน Modal (ซ่อนปุ่มถ้าจัดการไปแล้ว) */}
+                {(!selectedEst.status || selectedEst.status === 'PENDING') && (
+                  <div className="flex gap-4 mt-8 border-t pt-6 border-slate-100">
+                      <button 
+                          onClick={() => handleUpdateStatus(selectedEst.id, 'APPROVED')}
+                          className="flex-1 bg-emerald-500 text-white py-4 rounded-2xl font-black shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all"
+                      >
+                          อนุมัติทันที
+                      </button>
+                      <button 
+                          onClick={() => handleUpdateStatus(selectedEst.id, 'REJECTED')}
+                          className="flex-1 bg-white border-2 border-slate-200 text-slate-500 py-4 rounded-2xl font-black hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all"
+                      >
+                          ปฏิเสธ
+                      </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

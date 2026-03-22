@@ -139,10 +139,8 @@ model Review {
   comment   String   @db.Text // ข้อความรีวิว
   createdAt DateTime @default(now())
 
-  // ใครเป็นคนเขียนรีวิว?
-  studentId Int
-  student   User @relation(fields: [studentId], references: [id])
-
+  userId          Int
+  user            User          @relation(fields: [userId], references: [id])
   // รีวิวให้บริษัทไหน?
   establishmentId Int
   establishment   Establishment @relation(fields: [establishmentId], references: [id])
@@ -265,6 +263,7 @@ model SupervisionGroup {
 
   // เชื่อมไปที่อาจารย์ (หลายคนใน 1 กลุ่ม)
   instructors     User[]   @relation("InstructorInGroup")
+  scheduledDate   DateTime?
 }
 
 model Application {

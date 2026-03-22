@@ -11,7 +11,20 @@ export async function GET() {
         jobs: true 
       }
     });
-    return NextResponse.json(establishments);
+
+    // 🚩 เพิ่มขั้นตอนคำนวณค่าเฉลี่ยก่อนส่งออกไปจ้า
+    const dataWithRating = establishments.map((est) => {
+      // คำนวณหาค่าเฉลี่ยจากอาเรย์ reviews
+      const totalRating = est.reviews.reduce((acc, curr) => acc + curr.rating, 0);
+      const averageRating = est.reviews.length > 0 ? totalRating / est.reviews.length : 0;
+
+      return {
+        ...est,
+        averageRating: averageRating, // 👈 ส่งตัวนี้ออกไป หน้าบ้านถึงจะเห็นดาวจ้า!
+      };
+    });
+
+    return NextResponse.json(dataWithRating);
   } catch (error) {
     console.error('Error fetching establishments:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูล' }, { status: 500 });

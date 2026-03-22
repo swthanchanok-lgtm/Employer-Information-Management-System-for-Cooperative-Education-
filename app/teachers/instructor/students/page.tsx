@@ -12,13 +12,13 @@ export default function StudentScoresPage() {
   const fetchStudentScores = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/instructor/scores'); 
+      const res = await fetch('/api/instructor/scores', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch data');
       const data = await res.json();
       setStudents(data);
     } catch (error) {
       console.error("Error fetching student scores:", error);
-      setStudents([]); 
+      setStudents([]);
     } finally {
       setIsLoading(false);
     }
@@ -28,14 +28,14 @@ export default function StudentScoresPage() {
     fetchStudentScores();
   }, []);
 
-  const filteredStudents = students.filter(student => 
-    (student?.name || '').includes(searchQuery) || 
+  const filteredStudents = students.filter(student =>
+    (student?.name || '').includes(searchQuery) ||
     (student?.studentId || student?.id || '').includes(searchQuery)
   );
 
   return (
     <div className="p-8 bg-[#F8FAFC] min-h-screen font-sans animate-in fade-in duration-500">
-      
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-[#2B4560] flex items-center gap-3">
@@ -46,24 +46,24 @@ export default function StudentScoresPage() {
             ตรวจสอบคะแนนจากแบบประเมินทั้งหมด (ฟอร์ม 1, 2 และ 3)
           </p>
         </div>
-        
+
         <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl hover:bg-slate-50 transition-colors font-bold text-sm shadow-sm">
           <Download size={16} />
           Export คะแนน
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-6 flex gap-4">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
-          <input 
-            type="text" 
-            placeholder="ค้นหาชื่อ หรือ รหัสนักศึกษา..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-sm font-medium text-[#2B4560] outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 transition-all"
-          />
-        </div>
+      <div className="relative flex-1 group">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={20} />
+        <input
+          type="text"
+          id="student-search" // 🚩 เติมบรรทัดนี้จ้า
+          name="student-search" // 🚩 เติมบรรทัดนี้ด้วยจ้า
+          placeholder="ค้นหาชื่อ หรือ รหัสนักศึกษา..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-12 pr-4 py-3 bg-slate-50 border-transparent rounded-xl text-sm font-medium text-[#2B4560] outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 transition-all"
+        />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -72,10 +72,10 @@ export default function StudentScoresPage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-sm">
                 <th className="p-4 font-black whitespace-nowrap">นักศึกษา</th>
-                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 1<br/><span className="text-xs text-slate-400 font-normal">(แบบประเมิน 1)</span></th>
-                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 2<br/><span className="text-xs text-slate-400 font-normal">(อาจารย์นิเทศ)</span></th>
+                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 1<br /><span className="text-xs text-slate-400 font-normal">(แบบประเมิน 1)</span></th>
+                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 2<br /><span className="text-xs text-slate-400 font-normal">(อาจารย์นิเทศ)</span></th>
                 {/* 🚩 เพิ่มหัวตารางฟอร์ม 3 ตรงนี้จ้า */}
-                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 3<br/><span className="text-xs text-slate-400 font-normal">(สถานประกอบการ)</span></th>
+                <th className="p-4 font-black text-center whitespace-nowrap">ฟอร์ม 3<br /><span className="text-xs text-slate-400 font-normal">(สถานประกอบการ)</span></th>
                 <th className="p-4 font-black text-center whitespace-nowrap">คะแนนรวม</th>
                 <th className="p-4 font-black text-center whitespace-nowrap">จัดการ</th>
               </tr>
@@ -130,7 +130,7 @@ export default function StudentScoresPage() {
                     </td>
 
                     <td className="p-4 text-center">
-                      <Link 
+                      <Link
                         href={`/teachers/instructor/students/${student.id || student.studentId}`}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-200"
                         title="ดูรายละเอียดการประเมิน"

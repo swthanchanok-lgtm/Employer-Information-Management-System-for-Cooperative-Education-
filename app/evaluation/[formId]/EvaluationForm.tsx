@@ -19,6 +19,9 @@ export default function EvaluationForm({ forms, student }: FormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [answers, setAnswers] = useState<Record<number, string | number>>({})
   const [imageFile, setImageFile] = useState<File | null>(null)
+  
+  // 🚩 เพิ่ม State เก็บชื่อพี่เลี้ยง (เพราะพี่เลี้ยงไม่ได้ลงทะเบียนในระบบ)
+  const [mentorName, setMentorName] = useState('')
 
   const sigRefTeacher = useRef<any>(null)
   const sigRefMentor = useRef<any>(null)
@@ -40,84 +43,88 @@ export default function EvaluationForm({ forms, student }: FormProps) {
     setCurrentStep(prev => prev - 1)
   }
 
-  // 👇👇👇 บัวแก้เฉพาะตรงนี้จ้า: แยกเซฟฟอร์ม 1 กับฟอร์ม 2 👇👇👇
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     if (currentStep < 3) {
       nextStep()
       return
     }
 
-    if (!confirm('ยืนยันการบันทึกข้อมูลทั้งหมด?')) return
+    if (!confirm('ยืนยันการบันทึกข้อมูลการนิเทศทั้งหมด?')) return
     setIsSubmitting(true)
 
+    // ดึงลายเซ็นเป็น Base64
     const teacherSig = sigRefTeacher.current?.getCanvas().isEmpty() ? null : sigRefTeacher.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
     const mentorSig = sigRefMentor.current?.getCanvas().isEmpty() ? null : sigRefMentor.current?.getCanvas().getTrimmedCanvas().toDataURL('image/png')
 
-    // 🚩 1. จัดรูปแบบคำตอบทั้งหมดก่อน (กรอง ID ปลอมออก)
-    const formattedAnswers = Object.entries(answers)
-      .filter(([qId]) => Number(qId) < 1000) 
-      .map(([qId, val]) => {
-        const id = Number(qId);
-        const note = answers[id + 1000];
-
-        return {
-          question_id: id,
-          score: typeof val === 'number' ? val : null,
-          answer_text: typeof val === 'string' ? val : (note ? String(note) : null),
-        };
-      });
-
-    // 🚩 2. แยกคำตอบให้ "ฟอร์ม 1"
-    const form1QuestionIds = form1?.questions?.map((q: any) => q.id) || [];
-    const form1Answers = formattedAnswers.filter(a => form1QuestionIds.includes(a.question_id));
-
-    // 🚩 3. แยกคำตอบให้ "ฟอร์ม 2"
-    const form2QuestionIds = form2?.questions?.map((q: any) => q.id) || [];
-    const form2Answers = formattedAnswers.filter(a => form2QuestionIds.includes(a.question_id));
-
     try {
-      // 🚀 ยิง API รอบที่ 1: บันทึกของฟอร์ม 1
-      const res1 = await submitEvaluation({
-        formId: Number(form1?.id),
+      const form1QuestionIds = form1?.questions?.map((q: any) => q.id) || [];
+      const form2QuestionIds = form2?.questions?.map((q: any) => q.id) || [];
+
+      // ฟังก์ชันช่วยคัดกรองคำตอบแยกตามฟอร์ม
+      const filterAnswersForForm = (questionIds: number[]) => {
+        return Object.entries(answers)
+          .filter(([qId]) => {
+            const id = Number(qId);
+            return id < 1000 && questionIds.includes(id);
+          })
+          .map(([qId, val]) => {
+            const id = Number(qId);
+            const note = answers[id + 1000];
+            return {
+              question_id: id,
+              score: typeof val === 'number' ? val : null,
+              answer_text: typeof val === 'string' ? val : (note ? String(note) : null),
+            };
+          });
+      };
+
+      // 🚩 ข้อมูลส่วนกลางที่ต้องส่งไปบันทึกทั้ง 2 ฟอร์ม
+      const commonData = {
         evaluatorId: Number(session?.user?.id),
+        evaluatorName: session?.user?.name, // ชื่ออาจารย์จาก session
         studentId: Number(student?.id),
-        teacherSignature: teacherSig,
-        mentorSignature: mentorSig,
-        answers: form1Answers,
+        establishmentId: Number(student?.establishmentId), // ส่ง ID บริษัทไปด้วย
+        teacherSignatureUrl: teacherSig,
+        mentorSignatureUrl: mentorSig,
+        mentorName: mentorName, // ชื่อพี่เลี้ยงที่กรอกใหม่
+      };
+
+      // 🚀 ยิง API รอบที่ 1: บันทึกฟอร์ม 1
+      const res1 = await submitEvaluation({
+        ...commonData,
+        formId: Number(form1?.id),
+        answers: filterAnswersForForm(form1QuestionIds),
       });
 
-      // 🚀 ยิง API รอบที่ 2: บันทึกของฟอร์ม 2
+      // 🚀 ยิง API รอบที่ 2: บันทึกฟอร์ม 2
       const res2 = await submitEvaluation({
+        ...commonData,
         formId: Number(form2?.id),
-        evaluatorId: Number(session?.user?.id),
-        studentId: Number(student?.id),
-        teacherSignature: teacherSig,
-        mentorSignature: mentorSig,
-        answers: form2Answers,
+        answers: filterAnswersForForm(form2QuestionIds),
       });
 
       if (res1.success && res2.success) {
-        alert('บันทึกสำเร็จครบทั้ง 2 ส่วนแล้วจ้าแม่! กำลังไปหน้า QR Code นะจ๊ะ')
+        alert('🎉 บันทึกข้อมูลและลายเซ็นสำเร็จครบถ้วนแล้วจ้าแม่!')
         router.push(`/instructor/generate-qr?studentId=${student?.id}`)
       } else {
-        alert('อุ๊ย! มีบางส่วนบันทึกไม่สมบูรณ์จ้า ลองใหม่อีกทีนะ')
+        alert('⚠️ มีบางส่วนบันทึกไม่สำเร็จ ลองตรวจสอบอีกครั้งนะจ๊ะ')
       }
     } catch (error) {
       console.error("Submit Error:", error)
-      alert('ติดต่อ Server ไม่ได้จ้าแม่')
+      alert('❌ ติดต่อ Server ไม่ได้จ้าแม่')
     } finally {
       setIsSubmitting(false)
     }
   }
-  // 👆👆👆 จบส่วนที่แก้จ้า 👆👆👆
 
   if (!student?.id) return <div className="p-10 text-center">❌ ไม่พบข้อมูลนักศึกษา</div>
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 max-w-5xl mx-auto p-4 pb-20">
 
-      {/* --- ส่วนหัว (โชว์ทุก Step) --- */}
+      {/* --- ส่วนหัว --- */}
       <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8 text-slate-700">
         <div className="text-center space-y-2">
           <p className="text-sm font-black text-blue-600 tracking-widest uppercase">Step {currentStep} of 3</p>
@@ -135,15 +142,23 @@ export default function EvaluationForm({ forms, student }: FormProps) {
       {/* 🟢 STEP 1: ลายเซ็น + แบบสัมภาษณ์นักศึกษา */}
       {currentStep === 1 && (
         <>
-          {/* ✅ ย้ายมาไว้ตรงนี้ ตามที่แม่ต้องการ: อยู่ในส่วนที่ 1 ก่อนคำชี้แจง */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
               <p className="font-black text-[#2B4560] mb-4 text-center">ลายเซ็นอาจารย์นิเทศ</p>
               <SignatureBlock ref={sigRefTeacher} name={session?.user?.name || "..................."} position="อาจารย์นิเทศ" />
             </div>
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-              <p className="font-black text-[#2B4560] mb-4 text-center">ลายเซ็นพี่เลี้ยง</p>
-              <SignatureBlock ref={sigRefMentor} name="..................." position="พี่เลี้ยง/ผู้ประเมิน" />
+              <p className="font-black text-[#2B4560] mb-2 text-center">ลายเซ็นพี่เลี้ยง</p>
+              {/* 🚩 เพิ่มช่องกรอกชื่อพี่เลี้ยงตรงนี้จ้า */}
+              <input 
+                type="text" 
+                placeholder="พิมพ์ชื่อ-นามสกุลพี่เลี้ยง" 
+                className="w-full mb-4 p-2 border-b-2 border-dashed border-slate-300 outline-none text-center font-bold text-blue-600"
+                value={mentorName}
+                onChange={(e) => setMentorName(e.target.value)}
+                required
+              />
+              <SignatureBlock ref={sigRefMentor} name={mentorName || "..................."} position="พี่เลี้ยง/ผู้ประเมิน" />
             </div>
           </div>
 

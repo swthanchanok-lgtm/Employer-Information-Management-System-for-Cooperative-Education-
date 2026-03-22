@@ -5,12 +5,11 @@ import { usePathname } from 'next/navigation';
 import { 
   Home, 
   Building2, 
-  FileSearch, 
   ClipboardCheck, 
   UserCircle, 
   LogOut,
-  MapPin,
-  Sparkles
+  Sparkles,
+  PlusCircle // 🚩 เพิ่ม Icon สำหรับเมนูใหม่
 } from 'lucide-react';
 
 export default function StudentSidebar() {
@@ -28,9 +27,10 @@ export default function StudentSidebar() {
       path: '/student/establishments' 
     },
     { 
-      title: 'สถานะการยื่นเรื่อง', 
-      icon: <FileSearch size={18} />, 
-      path: '/dashboard/status' 
+      // 🚩 เพิ่มเมนู: เพิ่มสถานประกอบการ
+      title: 'เพิ่มสถานประกอบการ', 
+      icon: <PlusCircle size={18} />, 
+      path: '/establishments/add' 
     },
     { 
       title: 'บันทึกการฝึกงาน', 
@@ -56,7 +56,7 @@ export default function StudentSidebar() {
           <div>
             <h1 className="text-xl font-black text-[#2B4560] leading-none uppercase tracking-tighter">CO-EMS</h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
-               Student <Sparkles size={10} className="text-amber-400"/>
+                Student <Sparkles size={10} className="text-amber-400"/>
             </p>
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function StudentSidebar() {
   );
 }
 
-// แอบใส่ Icon นิดนึงจ้าแม่
+// Icon สำหรับ Logo
 function GraduationCap({ size, className }: { size: number, className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>

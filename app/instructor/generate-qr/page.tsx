@@ -55,7 +55,7 @@ function QRContent() {
           </button>
           
           <button 
-            onClick={() => window.location.href = '/instructor/dashboard'}
+            onClick={() => window.location.href = '/supervisor/dashboard'}
             className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-full hover:bg-slate-200 transition-all"
           >
             กลับหน้าแดชบอร์ด
